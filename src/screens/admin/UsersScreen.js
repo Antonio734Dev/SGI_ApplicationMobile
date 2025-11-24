@@ -158,7 +158,7 @@ const EditUserDialog = ({ user, onUserUpdated }) => {
                                                 <Select.Trigger>
                                                     <View className="w-full h-14 flex-row items-center justify-between px-4 rounded-xl bg-surface-2 border border-surface-3">
                                                         <Text className="text-foreground font-medium">{getRoleLabel(editedUser.roleId)}</Text>
-                                                        <Ionicons name="chevron-down" size={20} color={colors.muted} />
+                                                        <Ionicons name="chevron-down-outline" size={24} color={colors.muted} />
                                                     </View>
                                                 </Select.Trigger>
                                                 <Select.Portal>
@@ -174,7 +174,7 @@ const EditUserDialog = ({ user, onUserUpdated }) => {
                                                                 <View className="flex-row justify-between items-center w-full">
                                                                     <Text className="text-foreground text-lg">{role.label}</Text>
                                                                     {String(editedUser.roleId) === role.value && (
-                                                                        <Ionicons name="checkmark" size={20} color={colors.accent} />
+                                                                        <Ionicons name="checkmark-outline" size={24} color={colors.accent} />
                                                                     )}
                                                                 </View>
                                                             </Select.Item>
@@ -221,7 +221,7 @@ const EditUserDialog = ({ user, onUserUpdated }) => {
                                                 <Spinner size="sm" color={colors.accentForeground} />
                                             ) : (
                                                 <>
-                                                    <Ionicons name="checkmark" size={20} color={colors.accentForeground} />
+                                                    <Ionicons name="checkmark-outline" size={24} color={colors.accentForeground} />
                                                     <Button.Label>Guardar</Button.Label>
                                                 </>
                                             )}
@@ -281,11 +281,10 @@ const CreateUserDialog = ({ onUserCreated, isLoading }) => {
                             <View className="p-0 gap-4 w-full">
                                 <ScrollView showsVerticalScrollIndicator={false}>
                                     {/* Header */}
-                                    <View className="flex-row justify-between items-center mb-2">
-                                        <Text className="text-foreground text-2xl font-bold">Nuevo Usuario</Text>
+                                    <View className="flex gap-4 mb-10">
+                                        <Text className="text-foreground text-2xl font-medium">Nuevo usuario</Text>
+                                        <Text className="text-muted text-[14px]">Ingrese los datos del nuevo usuario</Text>
                                     </View>
-
-                                    <Text className="text-muted text-[14px] -mt-3 mb-2">Ingrese los datos del nuevo usuario</Text>
 
                                     {/* Formulario */}
                                     <View className="gap-4">
@@ -354,7 +353,7 @@ const CreateUserDialog = ({ onUserCreated, isLoading }) => {
                                                 <Select.Trigger>
                                                     <View className="w-full h-14 flex-row items-center justify-between px-4 rounded-xl bg-surface-2 border border-surface-3">
                                                         <Text className="text-foreground font-medium">{getRoleLabel(newUser.roleId)}</Text>
-                                                        <Ionicons name="chevron-down" size={20} color={colors.muted} />
+                                                        <Ionicons name="chevron-down-outline" size={24} color={colors.muted} />
                                                     </View>
                                                 </Select.Trigger>
                                                 <Select.Portal>
@@ -370,7 +369,7 @@ const CreateUserDialog = ({ onUserCreated, isLoading }) => {
                                                                 <View className="flex-row justify-between items-center w-full">
                                                                     <Text className="text-foreground text-lg">{role.label}</Text>
                                                                     {String(newUser.roleId) === role.value && (
-                                                                        <Ionicons name="checkmark" size={20} color={colors.accent} />
+                                                                        <Ionicons name="checkmark-outline" size={24} color={colors.accent} />
                                                                     )}
                                                                 </View>
                                                             </Select.Item>
@@ -401,7 +400,7 @@ const CreateUserDialog = ({ onUserCreated, isLoading }) => {
                                     </View>
 
                                     {/* Botones de acción */}
-                                    <View className="flex-row justify-end gap-3 pt-6">
+                                    <View className="flex-row justify-end gap-3 pt-6 pb-[6%]">
                                         <Dialog.Close asChild>
                                             <Button className="flex-1 bg-surface-2" isDisabled={isSaving}>
                                                 <Button.Label className="text-foreground">Cancelar</Button.Label>
@@ -417,7 +416,7 @@ const CreateUserDialog = ({ onUserCreated, isLoading }) => {
                                                 <Spinner size="sm" color={colors.accentForeground} />
                                             ) : (
                                                 <>
-                                                    <Ionicons name="add" size={20} color={colors.accentForeground} />
+                                                    <Ionicons name="add-outline" size={24} color={colors.accentForeground} />
                                                     <Button.Label>Crear</Button.Label>
                                                 </>
                                             )}
@@ -466,14 +465,20 @@ const StatusChangeDialog = ({ user, onStatusChanged }) => {
                         <View pointerEvents="none">
                             <Switch
                                 isSelected={user.status === 'activo'}
-                                trackColor={{ false: colors.surface3, true: colors.accent }}
                                 colors={{
                                     defaultBackground: colors.surface3,
                                     selectedBackground: colors.accent,
+                                    defaultBorder: 'transparent',
+                                    selectedBorder: 'transparent',
                                 }}
-                                // props visuales del thumb
-                                thumbColor={colors.accentForeground}
-                            />
+                            >
+                                <Switch.Thumb
+                                    colors={{
+                                        defaultBackground: colors.muted,
+                                        selectedBackground: colors.accentForeground,
+                                    }}
+                                />
+                            </Switch>
                         </View>
                     </TouchableOpacity>
                 </Dialog.Trigger>
@@ -484,7 +489,7 @@ const StatusChangeDialog = ({ user, onStatusChanged }) => {
                         <Dialog.Content className="w-full mt-[28%] px-[6%] pt-[12%] rounded-t-2xl rounded-b-none">
                             <View className="p-0 gap-4 w-full">
                                 <ScrollView showsVerticalScrollIndicator={false}>
-                                    <View className="gap-2">
+                                    <View className="gap-4">
                                         <Text className="text-foreground text-xl font-bold text-center">
                                             {user.status === 'activo' ? '¿Inhabilitar usuario?' : '¿Habilitar usuario?'}
                                         </Text>
@@ -495,7 +500,7 @@ const StatusChangeDialog = ({ user, onStatusChanged }) => {
                                         </Text>
                                     </View>
 
-                                    <View className="flex-row gap-3 mt-2">
+                                    <View className="flex-row gap-3 mt-6 pb-[6%]">
                                         {/* BOTÓN CANCELAR: Envuelto en Dialog.Close para que funcione */}
                                         <Dialog.Close asChild>
                                             <Button className="flex-1 bg-surface-2" isDisabled={isChangingStatus}>
@@ -509,8 +514,8 @@ const StatusChangeDialog = ({ user, onStatusChanged }) => {
                                             ) : (
                                                 <>
                                                     <Ionicons
-                                                        name={user.status === 'activo' ? 'close-circle-outline' : 'checkmark-circle-outline'}
-                                                        size={20}
+                                                        name={user.status === 'activo' ? 'close-outline' : 'checkmark-outline'}
+                                                        size={24}
                                                         color={colors.accentForeground}
                                                     />
                                                     <Button.Label>{user.status === 'activo' ? 'Inhabilitar' : 'Habilitar'}</Button.Label>
@@ -667,7 +672,7 @@ const UsersScreen = () => {
                                                     <Select.Item key={opt.value} value={opt.value} label={opt.label}>
                                                         <View className="flex-row items-center justify-between flex-1">
                                                             <Text className={`text-base text-foreground ${isSelected ? 'font-bold' : ''}`}>{opt.label}</Text>
-                                                            {isSelected && <Ionicons name="checkmark" size={24} color={colors.accent} />}
+                                                            {isSelected && <Ionicons name="checkmark-outline" size={24} color={colors.accent} />}
                                                         </View>
                                                     </Select.Item>
                                                 )
@@ -684,7 +689,7 @@ const UsersScreen = () => {
                         <Text className="text-[14px] font-semibold text-muted">{filteredAndSortedItems.length} Resultados</Text>
                         <View className="flex flex-row gap-2">
                             <View className="flex-row items-center bg-surface-1 px-2 py-2 rounded-full gap-1">
-                                <Ionicons name="swap-vertical" size={12} color={colors.foreground} />
+                                <Ionicons name="swap-vertical-outline" size={12} color={colors.foreground} />
                                 <Text className="text-xs font-semibold text-foreground">{sortOption.label}</Text>
                             </View>
                             {statusFilter !== 'all' && (
@@ -717,7 +722,7 @@ const UsersScreen = () => {
                             onChangeText={setSearchValue}
                         >
                             <TextField.InputEndContent>
-                                <Ionicons name="search" size={24} color={colors.muted} />
+                                <Ionicons name="search-outline" size={24} color={colors.muted} />
                             </TextField.InputEndContent>
                         </TextField.Input>
                     </TextField>
@@ -805,7 +810,7 @@ const UsersScreen = () => {
                                                     isDisabled={page === 1}
                                                     onPress={() => setPage((p) => Math.max(1, p - 1))}
                                                 >
-                                                    <Ionicons name="chevron-back" size={18} color={page === 1 ? colors.muted : colors.background} />
+                                                    <Ionicons name="chevron-back-outline" size={24} color={page === 1 ? colors.muted : colors.background} />
                                                 </Button>
                                                 <Text className="text-background font-bold text-sm px-2">
                                                     {page} <Text className="text-base ">/ {pages || 1}</Text>
@@ -819,8 +824,8 @@ const UsersScreen = () => {
                                                     onPress={() => setPage((p) => Math.min(pages, p + 1))}
                                                 >
                                                     <Ionicons
-                                                        name="chevron-forward"
-                                                        size={18}
+                                                        name="chevron-forward-outline"
+                                                        size={24}
                                                         color={page === pages || pages === 0 ? colors.muted : colors.background}
                                                     />
                                                 </Button>

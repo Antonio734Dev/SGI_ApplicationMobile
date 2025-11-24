@@ -468,6 +468,22 @@ const StatusChangeDialog = ({ user, onStatusChanged }) => {
                                 // props visuales del thumb
                                 thumbColor={colors.accentForeground}
                             />
+                            <Switch
+                                isSelected={item.status === 'activo'}
+                                colors={{
+                                    defaultBackground: colors.surface2,
+                                    selectedBackground: colors.accent,
+                                    defaultBorder: 'transparent',
+                                    selectedBorder: 'transparent',
+                                }}
+                            >
+                                <Switch.Thumb
+                                    colors={{
+                                        defaultBackground: colors.background,
+                                        selectedBackground: colors.accentForeground,
+                                    }}
+                                />
+                            </Switch>
                         </View>
                     </TouchableOpacity>
                 </Dialog.Trigger>

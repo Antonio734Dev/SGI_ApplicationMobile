@@ -72,7 +72,7 @@ export const updateProfile = async (user) => {
 
 export const changeStatus = async (email) => {
     try {
-        const response = await api.delete(`/users/${email}`)
+        const response = await api.delete(`/api/users/${email}`)
 
         if (response.status >= 200 && response.status < 300) {
             return response.data

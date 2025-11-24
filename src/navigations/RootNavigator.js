@@ -1,17 +1,18 @@
-import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Spinner } from "heroui-native";
-import { useAuth } from "../context/AuthContext";
-import AppNavigator from "./AppNavigator";
-import LoginScreen from "../screens/LoginScreen";
+import { NavigationContainer } from '@react-navigation/native'
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import { Spinner, useTheme } from 'heroui-native'
+import { useAuth } from '../contexts/AuthContext'
+import AppNavigator from './AppNavigator'
+import LoginScreen from '../screens/LoginScreen'
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator()
 
 const RootNavigator = () => {
-    const { userToken, isLoading } = useAuth();
+    const { userToken, isLoading } = useAuth()
+    const { colors } = useTheme()
 
     if (isLoading) {
-        return <Spinner />
+        return <Spinner color={colors.foreground} size="md" />
     }
 
     return (
@@ -26,7 +27,7 @@ const RootNavigator = () => {
                 )}
             </Stack.Navigator>
         </NavigationContainer>
-    );
-};
+    )
+}
 
-export default RootNavigator;
+export default RootNavigator

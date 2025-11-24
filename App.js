@@ -1,8 +1,8 @@
-import "./global.css";
-import RootNavigator from "./src/navigation/RootNavigator";
-import { HeroUINativeProvider, Spinner } from "heroui-native";
-import { AuthProvider } from "./src/context/AuthContext";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import './global.css'
+import RootNavigator from './src/navigations/RootNavigator'
+import { HeroUINativeProvider, Spinner, useTheme } from 'heroui-native'
+import { AuthProvider } from './src/contexts/AuthContext'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 import {
     useFonts,
@@ -10,115 +10,147 @@ import {
     PlusJakartaSans_500Medium,
     PlusJakartaSans_600SemiBold,
     PlusJakartaSans_700Bold,
-} from "@expo-google-fonts/plus-jakarta-sans";
-
-const config = {
-    colorScheme: "system",
-    theme: {
-        light: {
-            colors: {
-                background: "#efefef",
-                foreground: "#000000",
-                panel: "#e4e4e4",
-                muted: "#afafaf",
-                mutedForeground: "#a5a5a5",
-
-                surface: "#efefef",
-                surfaceForeground: "#000000",
-                default: "#efefef",
-                defaultForeground: "#000000",
-
-                //Brand colors
-                //accent: '#460bea',
-                //accentForeground: '#ffffff',
-                //accentSoft: '#efefef',
-                //accentSoftForeground: '#460bea',
-
-                //success: '#00C853',
-                //successForeground: '#ffffff',
-                //warning: '#FFB300',
-                //warningForeground: '#000000',
-                //danger: '#FF3B30',
-                //dangerForeground: '#ffffff',
-
-                surface1: "#efefef",
-                surface2: "#e4e4e4",
-                surface3: "#dadada",
-
-                border: "#dadada",
-                divider: "#e4e4e4",
-                //link: '#460bea',
-            },
-            borderRadius: {
-                DEFAULT: "12px",
-                panel: "8px",
-                "panel-inner": "4px",
-            },
-            opacity: {
-                disabled: 0.4,
-            },
-        },
-        dark: {
-            colors: {
-                background: "#1b1b1b",
-                foreground: "#ffffff",
-                panel: "#252525",
-                muted: "#5a5a5a",
-                mutedForeground: "#656565",
-
-                surface: "#1b1b1b",
-                surfaceForeground: "#ffffff",
-                default: "#1b1b1b",
-                defaultForeground: "#ffffff",
-
-                //Brand colors
-                //accent: '#460bea',
-                //accentForeground: '#ffffff',
-                //accentSoft: '#252525',
-                //accentSoftForeground: '#460bea',
-
-                //success: '#00E676',
-                //successForeground: '#000000',
-                //warning: '#FFCA28',
-                //warningForeground: '#000000',
-                //danger: '#FF5252',
-                //dangerForeground: '#000000',
-
-                surface1: "#252525",
-                surface2: "#303030",
-                surface3: "#3a3a3a",
-
-                border: "#3a3a3a",
-                divider: "#303030",
-                //link: '#460bea',
-            },
-        },
-    },
-    textProps: {
-        minimumFontScale: 0.5,
-        maxFontSizeMultiplier: 1.5,
-    },
-};
+} from '@expo-google-fonts/plus-jakarta-sans'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
 export default function App() {
+    const { colors } = useTheme()
+
     let [fontsLoaded] = useFonts({
         PlusJakartaSans_400Regular,
         PlusJakartaSans_500Medium,
         PlusJakartaSans_600SemiBold,
         PlusJakartaSans_700Bold,
-    });
+    })
 
     if (!fontsLoaded) {
-        return <Spinner />;
+        return <Spinner color={colors.foreground} size="md" />
     }
 
     return (
-        <HeroUINativeProvider config={config}>
-            <AuthProvider>
-                <SafeAreaProvider>
-                    <RootNavigator />
-                </SafeAreaProvider>
-            </AuthProvider>
-        </HeroUINativeProvider>
-    );
+        <SafeAreaProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+                <HeroUINativeProvider
+                    config={{
+                        colorScheme: 'system',
+                        theme: {
+                            // ---------
+                            // LIGHT MODE - Escala de grises refinada
+                            // ---------
+                            light: {
+                                colors: {
+                                    // Base
+                                    background: '#f5f5f5', // Gris muy claro, suave
+                                    foreground: '#0a0a0a', // Negro intenso pero no puro
+                                    panel: '#eeeeee', // Panel ligeramente más oscuro que background
+
+                                    // Muted (elementos secundarios)
+                                    muted: '#9e9e9e', // Gris medio para íconos deshabilitados
+                                    mutedForeground: '#757575', // Gris oscuro para texto secundario
+
+                                    // Surface (sistema de capas)
+                                    surface: '#f5f5f5',
+                                    surfaceForeground: '#0a0a0a',
+                                    default: '#f5f5f5',
+                                    defaultForeground: '#0a0a0a',
+
+                                    // Superficies elevadas (de más clara a más oscura)
+                                    surface1: '#eeeeee', // Primer nivel de elevación
+                                    surface2: '#e0e0e0', // Segundo nivel
+                                    surface3: '#d4d4d4', // Tercer nivel
+
+                                    // Bordes y divisores
+                                    border: '#d4d4d4', // Bordes sutiles
+                                    divider: '#e0e0e0', // Divisores muy sutiles
+
+                                    // Brand colors - Accent en escala de grises
+                                    accent: '#2a2a2a', // Gris oscuro para accent
+                                    accentForeground: '#ffffff',
+                                    accentSoft: '#e8e8e8', // Background suave para accent
+                                    accentSoftForeground: '#2a2a2a',
+
+                                    // Estados (versión monocromática)
+                                    //success: '#4a4a4a',
+                                    //successForeground: '#ffffff',
+                                    //warning: '#6a6a6a',
+                                    //warningForeground: '#ffffff',
+                                    //danger: '#1a1a1a',
+                                    //dangerForeground: '#ffffff',
+                                },
+                                borderRadius: {
+                                    DEFAULT: '12px',
+                                    panel: '8px',
+                                    'panel-inner': '4px',
+                                },
+                                opacity: {
+                                    disabled: 0.4,
+                                },
+                            },
+
+                            // ---------
+                            // DARK MODE - Escala de grises refinada
+                            // ---------
+                            dark: {
+                                colors: {
+                                    // Base
+                                    background: '#0f0f0f', // Negro profundo pero no puro
+                                    foreground: '#f5f5f5', // Blanco suave, no puro
+                                    panel: '#1a1a1a', // Panel ligeramente más claro
+
+                                    // Muted (elementos secundarios)
+                                    muted: '#6a6a6a', // Gris medio para íconos deshabilitados
+                                    mutedForeground: '#8a8a8a', // Gris claro para texto secundario
+
+                                    // Surface (sistema de capas)
+                                    surface: '#0f0f0f',
+                                    surfaceForeground: '#f5f5f5',
+                                    default: '#0f0f0f',
+                                    defaultForeground: '#f5f5f5',
+
+                                    // Superficies elevadas (de más oscura a más clara)
+                                    surface1: '#1a1a1a', // Primer nivel de elevación
+                                    surface2: '#252525', // Segundo nivel
+                                    surface3: '#303030', // Tercer nivel
+
+                                    // Bordes y divisores
+                                    border: '#303030', // Bordes sutiles
+                                    divider: '#252525', // Divisores muy sutiles
+
+                                    // Brand colors - Accent en escala de grises
+                                    accent: '#e8e8e8', // Gris claro para accent
+                                    accentForeground: '#0f0f0f',
+                                    accentSoft: '#1f1f1f', // Background suave para accent
+                                    accentSoftForeground: '#e8e8e8',
+
+                                    // Estados (versión monocromática)
+                                    //success: '#c5c5c5',
+                                    //successForeground: '#0f0f0f',
+                                    //warning: '#a5a5a5',
+                                    //warningForeground: '#0f0f0f',
+                                    //danger: '#e5e5e5',
+                                    //dangerForeground: '#0f0f0f',
+                                },
+                                borderRadius: {
+                                    DEFAULT: '12px',
+                                    panel: '8px',
+                                    'panel-inner': '4px',
+                                },
+                                opacity: {
+                                    disabled: 0.4,
+                                },
+                            },
+                        },
+                        textProps: {
+                            minimumFontScale: 0.5,
+                            maxFontSizeMultiplier: 1.5,
+                        },
+                    }}
+                >
+                    <AuthProvider>
+                        <RootNavigator />
+                    </AuthProvider>
+                </HeroUINativeProvider>
+            </GestureHandlerRootView>
+        </SafeAreaProvider>
+    )
 }

@@ -1,16 +1,24 @@
-import { Button, Text } from "react-native";
-import { useAuth } from "../../context/AuthContext";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Text, View } from 'react-native'
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view'
+import { SafeAreaView } from 'react-native-safe-area-context'
 
 const HomeScreen = () => {
-    const { logout, userRole } = useAuth();
-
     return (
-        <SafeAreaView className="flex-1 bg-background">
-            <Text>Home Screen. Tu rol actual es: {userRole}</Text>
-            <Button title="Cerrar Sesión (Test)" onPress={logout} />
+        <SafeAreaView className="flex-1 bg-background px-[10%] py-[16%]">
+            <KeyboardAwareScrollView
+                contentContainerStyle={{
+                    flexGrow: 1,
+                    justifyContent: 'center',
+                }}
+                keyboardShouldPersistTaps="handled"
+                enableOnAndroid={true}
+            >
+                <View className="px-[10%] pt-[10%]">
+                    <Text className="font-bold text-[32px] text-foreground">Inicio</Text>
+                </View>
+            </KeyboardAwareScrollView>
         </SafeAreaView>
-    );
-};
+    )
+}
 
-export default HomeScreen;
+export default HomeScreen

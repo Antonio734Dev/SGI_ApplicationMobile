@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react'
+import React, { useEffect, useState, useMemo, useRef, forwardRef, useImperativeHandle } from 'react'
 import { Text, View, TouchableOpacity, Platform, Dimensions } from 'react-native'
 import ScrollableLayout from '../../layouts/ScrollableLayout'
 import { Accordion, Button, RadioGroup, ScrollShadow, Spinner, Switch, TextField, useTheme } from 'heroui-native'
@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { formatDateLiteral } from '../../utils/utils'
 import { Modalize } from 'react-native-modalize'
 import { ScrollView } from 'react-native-gesture-handler'
+import { required, onlyLetters, validEmail, validPhone, validRoleId } from '../../utils/validators'
 
 const { height } = Dimensions.get('window')
 const MODAL_MAX_HEIGHT = height * 0.75
@@ -26,12 +27,85 @@ const getRoleLabel = (id) => {
     return role ? role.label : 'Seleccionar Rol'
 }
 
+const CustomAlert = forwardRef((_, ref) => {
+    const { colors } = useTheme()
+    const modalRef = useRef(null)
+    const [alertConfig, setAlertConfig] = useState({
+        title: '',
+        message: '',
+        type: 'success',
+    })
+
+    useImperativeHandle(ref, () => ({
+        show: (title, message, type = 'success') => {
+            setAlertConfig({ title, message, type })
+            modalRef.current?.open()
+        },
+        close: () => {
+            modalRef.current?.close()
+        },
+    }))
+
+    const getConfig = () => {
+        switch (alertConfig.type) {
+            case 'error':
+                return { icon: 'alert-outline', color: colors.danger, bgIcon: 'bg-danger/10' }
+            case 'warning':
+                return { icon: 'warning-outline', color: colors.warning, bgIcon: 'bg-warning/10' }
+            case 'success':
+            default:
+                return { icon: 'checkmark-outline', color: colors.accent, bgIcon: 'bg-accent/10' }
+        }
+    }
+
+    const config = getConfig()
+
+    return (
+        <Modalize
+            ref={modalRef}
+            adjustToContentHeight={true}
+            overlayStyle={OVERLAY_STYLE}
+            modalStyle={{ backgroundColor: colors.background }}
+            handlePosition="inside"
+        >
+            <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={{
+                        paddingHorizontal: '6%',
+                        paddingTop: '9%',
+                        paddingBottom: '6%',
+                    }}
+                >
+                    <View className="flex flex-col items-center justify-center">
+                        <View className={`h-16 w-16 rounded-full items-center justify-center mb-4 ${config.bgIcon}`}>
+                            <Ionicons name={config.icon} size={32} color={config.color} />
+                        </View>
+                        <Text className="text-foreground text-2xl font-medium mb-2 text-center">{alertConfig.title}</Text>
+                        <Text className="text-muted-foreground text-center px-4 mb-8">{alertConfig.message}</Text>
+                        <Button
+                            onPress={() => modalRef.current?.close()}
+                            className={
+                                alertConfig.type === 'warning'
+                                    ? 'bg-warning w-full text-warning-foreground'
+                                    : alertConfig.type === 'error'
+                                      ? 'bg-danger w-full text-danger-foreground'
+                                      : 'bg-accent w-full text-accent-foreground'
+                            }
+                        >
+                            <Button.Label>Entendido</Button.Label>
+                        </Button>
+                    </View>
+                </ScrollView>
+            </View>
+        </Modalize>
+    )
+})
+
 // =====================================================================
 // 1. MODAL DE FILTROS
 // =====================================================================
-// Asegúrate de importar RadioGroup de heroui-native al inicio de tu archivo
-// import { RadioGroup, ... } from 'heroui-native';
-
 const FiltersModalContent = ({ modalRef, sortOption, setSortOption, statusFilter, setStatusFilter, rowsPerPage, setRowsPerPage, setPage }) => {
     const { colors } = useTheme()
 
@@ -39,7 +113,6 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, statusFilter
         modalRef.current?.close()
     }
 
-    // Definimos las opciones por separado para mapearlas limpiamente
     const sortOptions = [
         { label: 'Nombre', value: 'name' },
         { label: 'Correo', value: 'email' },
@@ -60,22 +133,18 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, statusFilter
         { label: '50 filas', value: '50' },
     ]
 
-    // Handlers específicos para cada grupo
     const handleSortChange = (val) => {
         const selectedLabel = sortOptions.find((opt) => opt.value === val)?.label
         setSortOption({ value: val, label: selectedLabel })
-        // onClose() // Descomenta si quieres que se cierre al seleccionar
     }
 
     const handleStatusChange = (val) => {
         setStatusFilter(val)
-        // onClose()
     }
 
     const handleRowsChange = (val) => {
         setRowsPerPage(val)
         setPage(1)
-        // onClose()
     }
 
     return (
@@ -85,6 +154,7 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, statusFilter
             avoidKeyboardLikeIOS={true}
             overlayStyle={OVERLAY_STYLE}
             modalStyle={{ backgroundColor: colors.background }}
+            handlePosition="inside"
         >
             <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
                 <ScrollView
@@ -95,7 +165,6 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, statusFilter
                         paddingBottom: '6%',
                     }}
                 >
-                    {/* Header del Modal */}
                     <View className="flex gap-0 mb-8">
                         <View className="flex flex-row justify-between items-center">
                             <Text className="text-foreground text-2xl font-medium">Opciones</Text>
@@ -105,9 +174,7 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, statusFilter
                         </View>
                         <Text className="text-muted-foreground">Ordena y filtra tus resultados</Text>
                     </View>
-
                     <View className="gap-6 pb-4">
-                        {/* GRUPO 1: ORDENAR POR */}
                         <View>
                             <View className="bg-surface-1 rounded-lg p-2 mb-2">
                                 <Text className="text-[12px] font-semibold text-muted-foreground">Ordenar por</Text>
@@ -125,8 +192,6 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, statusFilter
                                 ))}
                             </RadioGroup>
                         </View>
-
-                        {/* GRUPO 2: FILTRAR POR ESTADO */}
                         <View>
                             <View className="bg-surface-1 rounded-lg p-2 mb-2">
                                 <Text className="text-[12px] font-semibold text-muted-foreground">Filtrar por estado</Text>
@@ -144,8 +209,6 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, statusFilter
                                 ))}
                             </RadioGroup>
                         </View>
-
-                        {/* GRUPO 3: FILAS POR PÁGINA */}
                         <View>
                             <View className="bg-surface-1 rounded-lg p-2 mb-2">
                                 <Text className="text-[12px] font-semibold text-muted-foreground">Filas por página</Text>
@@ -171,17 +234,51 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, statusFilter
 }
 
 // =====================================================================
-// 2. MODAL DE EDICIÓN
+// 2. MODAL DE EDICIÓN (CON VALIDACIÓN)
 // =====================================================================
-const EditUserModalContent = ({ modalRef, user, onUserUpdated }) => {
+const EditUserModalContent = ({ modalRef, user, onUserUpdated, alertRef }) => {
     const { colors } = useTheme()
     const roleModalRef = useRef(null)
     const [isSaving, setIsSaving] = useState(false)
     const [editedUser, setEditedUser] = useState({ name: '', email: '', position: '', phone: '', roleId: 1 })
+    const [userErrors, setUserErrors] = useState({
+        name: [],
+        email: [],
+        position: [],
+        phone: [],
+        roleId: [],
+    })
+
+    // Definir validadores
+    const validators = {
+        name: [required, onlyLetters],
+        email: [required, validEmail],
+        position: [required, onlyLetters],
+        phone: [validPhone],
+        roleId: [validRoleId],
+    }
+
+    // Función para ejecutar validadores
+    const runValidators = (value, fns) => fns.map((fn) => fn(value)).filter(Boolean)
+
+    // Handler para cambios en inputs con validación en tiempo real
+    const handleInputChange = (field, value) => {
+        setEditedUser((prev) => ({ ...prev, [field]: value }))
+        const fns = validators[field] || []
+        const errs = runValidators(value, fns)
+        setUserErrors((prev) => ({ ...prev, [field]: errs }))
+    }
 
     useEffect(() => {
         if (user) {
             setEditedUser({ ...user })
+            setUserErrors({
+                name: [],
+                email: [],
+                position: [],
+                phone: [],
+                roleId: [],
+            })
         }
     }, [user])
 
@@ -190,12 +287,42 @@ const EditUserModalContent = ({ modalRef, user, onUserUpdated }) => {
     }
 
     const handleSave = async () => {
-        if (!editedUser.name || !editedUser.name.trim() || !editedUser.email.trim() || !editedUser.position.trim()) {
-            alert('Campos obligatorios faltantes')
+        // Validación final antes de guardar
+        const nameErrs = runValidators(editedUser.name, validators.name)
+        const emailErrs = runValidators(editedUser.email, validators.email)
+        const positionErrs = runValidators(editedUser.position, validators.position)
+        const phoneErrs = runValidators(editedUser.phone, validators.phone)
+        const roleIdErrs = runValidators(String(editedUser.roleId), validators.roleId)
+
+        if (nameErrs.length > 0 || emailErrs.length > 0 || positionErrs.length > 0 || phoneErrs.length > 0 || roleIdErrs.length > 0) {
+            setUserErrors({
+                name: nameErrs,
+                email: emailErrs,
+                position: positionErrs,
+                phone: phoneErrs,
+                roleId: roleIdErrs,
+            })
+            alertRef.current?.show('Atención', 'Por favor corrija los errores en el formulario.', 'warning')
             return
         }
+
         try {
             setIsSaving(true)
+
+            // Validación del servidor: verificar email duplicado
+            const response = await getUsersRequest()
+            const users = response.data || []
+            const exists = users.find((u) => u.email.trim().toLowerCase() === editedUser.email.trim().toLowerCase() && u.id !== editedUser.id)
+
+            if (exists) {
+                setUserErrors((prev) => ({
+                    ...prev,
+                    email: ['El correo electrónico ingresado ya está en uso.'],
+                }))
+                alertRef.current?.show('Error', 'El correo electrónico ingresado ya está en uso.', 'error')
+                return
+            }
+
             const userToUpdate = {
                 id: editedUser.id,
                 name: editedUser.name.trim(),
@@ -204,25 +331,62 @@ const EditUserModalContent = ({ modalRef, user, onUserUpdated }) => {
                 phone: editedUser.phone?.trim() || '',
                 roleId: editedUser.roleId,
             }
-            const response = await updateUser(userToUpdate)
-            if (response.type === 'SUCCESS') {
-                alert(`Usuario ${editedUser.name} actualizado correctamente`)
+
+            const updateResponse = await updateUser(userToUpdate)
+
+            if (updateResponse.type === 'SUCCESS') {
                 onClose()
+                setTimeout(() => {
+                    alertRef.current?.show('Éxito', `Usuario ${editedUser.name} actualizado correctamente`, 'success')
+                }, 300)
                 if (onUserUpdated) onUserUpdated()
             } else {
-                alert('No se pudo actualizar el usuario')
+                alertRef.current?.show('Error', 'No se pudo actualizar el usuario', 'error')
             }
         } catch (error) {
             console.error('Error update:', error)
-            alert(error.response?.data?.message || 'Error al actualizar')
+            if (error.response?.data) {
+                const { result, title } = error.response.data
+                alertRef.current?.show('Error', title || 'Error al actualizar', 'error')
+
+                // Procesar errores específicos de campo si existen
+                if (result && Array.isArray(result) && result.length > 0) {
+                    const newFieldErrors = { name: [], email: [], position: [], phone: [], roleId: [] }
+                    result.forEach((validationError) => {
+                        const field = validationError.field
+                        const descriptions = validationError.descriptions || []
+                        if (newFieldErrors.hasOwnProperty(field)) {
+                            newFieldErrors[field] = descriptions
+                        }
+                    })
+                    setUserErrors(newFieldErrors)
+                }
+            } else {
+                alertRef.current?.show('Error', 'Error al actualizar', 'error')
+            }
         } finally {
             setIsSaving(false)
         }
     }
 
     const openRoles = () => roleModalRef.current?.open()
+
     const selectRole = (val) => {
-        setEditedUser({ ...editedUser, roleId: Number(val) })
+        handleInputChange('roleId', Number(val))
+    }
+
+    // Verificar si hay errores en el formulario
+    const hasErrors = () => {
+        return (
+            userErrors.name.length > 0 ||
+            userErrors.email.length > 0 ||
+            userErrors.position.length > 0 ||
+            userErrors.phone.length > 0 ||
+            userErrors.roleId.length > 0 ||
+            !editedUser.name.trim() ||
+            !editedUser.email.trim() ||
+            !editedUser.position.trim()
+        )
     }
 
     return (
@@ -233,6 +397,7 @@ const EditUserModalContent = ({ modalRef, user, onUserUpdated }) => {
                 avoidKeyboardLikeIOS={true}
                 overlayStyle={OVERLAY_STYLE}
                 modalStyle={{ backgroundColor: colors.background }}
+                handlePosition="inside"
             >
                 <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
                     <ScrollView
@@ -255,61 +420,106 @@ const EditUserModalContent = ({ modalRef, user, onUserUpdated }) => {
                                     </View>
                                     <Text className="text-muted-foreground">Edite los datos del usuario</Text>
                                 </View>
-
                                 <View className="gap-6">
-                                    <TextField isRequired>
-                                        <TextField.Label className="text-foreground font-medium mb-2">Nombre</TextField.Label>
+                                    <TextField isRequired isInvalid={userErrors.name.length > 0}>
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <TextField.Label className="text-foreground font-medium">Nombre</TextField.Label>
+                                            <Text className="text-muted-foreground text-xs">{editedUser.name.length} / 50</Text>
+                                        </View>
                                         <TextField.Input
                                             colors={{
                                                 blurBackground: colors.accentSoft,
                                                 focusBackground: colors.surface2,
-                                                blurBorder: colors.accentSoft,
-                                                focusBorder: colors.surface2,
+                                                blurBorder: userErrors.name.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: userErrors.name.length > 0 ? colors.danger : colors.surface2,
                                             }}
                                             placeholder="Nombre del usuario"
                                             value={editedUser.name}
-                                            onChangeText={(text) => setEditedUser((prev) => ({ ...prev, name: text }))}
+                                            onChangeText={(text) => handleInputChange('name', text)}
                                             cursorColor={colors.accent}
                                             selectionHandleColor={colors.accent}
                                             selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                        />
+                                            maxLength={50}
+                                        >
+                                            <TextField.InputEndContent>
+                                                {userErrors.name.length === 0 && editedUser.name.trim() ? (
+                                                    <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                                ) : userErrors.name.length > 0 ? (
+                                                    <Ionicons name="close" size={24} color={colors.danger} />
+                                                ) : null}
+                                            </TextField.InputEndContent>
+                                        </TextField.Input>
+                                        {userErrors.name.length > 0 ? <TextField.ErrorMessage>{userErrors.name.join('\n')}</TextField.ErrorMessage> : undefined}
                                     </TextField>
-                                    <TextField isRequired>
-                                        <TextField.Label className="text-foreground font-medium mb-2">Correo electrónico </TextField.Label>
+
+                                    <TextField isRequired isInvalid={userErrors.email.length > 0}>
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <TextField.Label className="text-foreground font-medium">Correo electrónico</TextField.Label>
+                                            <Text className="text-muted-foreground text-xs">{editedUser.email.length} / 50</Text>
+                                        </View>
                                         <TextField.Input
                                             colors={{
                                                 blurBackground: colors.accentSoft,
                                                 focusBackground: colors.surface2,
-                                                blurBorder: colors.accentSoft,
-                                                focusBorder: colors.surface2,
+                                                blurBorder: userErrors.email.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: userErrors.email.length > 0 ? colors.danger : colors.surface2,
                                             }}
                                             placeholder="correo@ejemplo.com"
                                             value={editedUser.email}
-                                            onChangeText={(text) => setEditedUser((prev) => ({ ...prev, email: text }))}
+                                            onChangeText={(text) => handleInputChange('email', text)}
                                             keyboardType="email-address"
                                             autoCapitalize="none"
                                             cursorColor={colors.accent}
                                             selectionHandleColor={colors.accent}
                                             selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                        />
+                                            maxLength={50}
+                                        >
+                                            <TextField.InputEndContent>
+                                                {userErrors.email.length === 0 && editedUser.email.trim() ? (
+                                                    <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                                ) : userErrors.email.length > 0 ? (
+                                                    <Ionicons name="close" size={24} color={colors.danger} />
+                                                ) : null}
+                                            </TextField.InputEndContent>
+                                        </TextField.Input>
+                                        {userErrors.email.length > 0 ? (
+                                            <TextField.ErrorMessage>{userErrors.email.join('\n')}</TextField.ErrorMessage>
+                                        ) : undefined}
                                     </TextField>
-                                    <TextField isRequired>
-                                        <TextField.Label className="text-foreground font-medium mb-2">Puesto</TextField.Label>
+
+                                    <TextField isRequired isInvalid={userErrors.position.length > 0}>
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <TextField.Label className="text-foreground font-medium">Puesto</TextField.Label>
+                                            <Text className="text-muted-foreground text-xs">{editedUser.position.length} / 50</Text>
+                                        </View>
                                         <TextField.Input
                                             colors={{
                                                 blurBackground: colors.accentSoft,
                                                 focusBackground: colors.surface2,
-                                                blurBorder: colors.accentSoft,
-                                                focusBorder: colors.surface2,
+                                                blurBorder: userErrors.position.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: userErrors.position.length > 0 ? colors.danger : colors.surface2,
                                             }}
                                             placeholder="Puesto del usuario"
                                             value={editedUser.position}
-                                            onChangeText={(text) => setEditedUser((prev) => ({ ...prev, position: text }))}
+                                            onChangeText={(text) => handleInputChange('position', text)}
                                             cursorColor={colors.accent}
                                             selectionHandleColor={colors.accent}
                                             selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                        />
+                                            maxLength={50}
+                                        >
+                                            <TextField.InputEndContent>
+                                                {userErrors.position.length === 0 && editedUser.position.trim() ? (
+                                                    <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                                ) : userErrors.position.length > 0 ? (
+                                                    <Ionicons name="close" size={24} color={colors.danger} />
+                                                ) : null}
+                                            </TextField.InputEndContent>
+                                        </TextField.Input>
+                                        {userErrors.position.length > 0 ? (
+                                            <TextField.ErrorMessage>{userErrors.position.join('\n')}</TextField.ErrorMessage>
+                                        ) : undefined}
                                     </TextField>
+
                                     <View style={{ zIndex: 1000 }}>
                                         <Text className="text-foreground font-medium mb-2">
                                             Rol <Text className="text-danger">*</Text>
@@ -320,34 +530,45 @@ const EditUserModalContent = ({ modalRef, user, onUserUpdated }) => {
                                                 <Ionicons name="chevron-down-outline" size={24} color={colors.accent} />
                                             </View>
                                         </TouchableOpacity>
+                                        {userErrors.roleId.length > 0 ? <Text className="text-danger text-sm mt-1">{userErrors.roleId.join('\n')}</Text> : null}
                                     </View>
-                                    <TextField>
-                                        <TextField.Label className="text-foreground font-medium mb-2">Teléfono</TextField.Label>
+
+                                    <TextField isInvalid={userErrors.phone.length > 0}>
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <TextField.Label className="text-foreground font-medium">Teléfono</TextField.Label>
+                                            <Text className="text-muted-foreground text-xs">{editedUser.phone?.length || 0} / 10</Text>
+                                        </View>
                                         <TextField.Input
                                             colors={{
                                                 blurBackground: colors.accentSoft,
                                                 focusBackground: colors.surface2,
-                                                blurBorder: colors.accentSoft,
-                                                focusBorder: colors.surface2,
+                                                blurBorder: userErrors.phone.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: userErrors.phone.length > 0 ? colors.danger : colors.surface2,
                                             }}
                                             placeholder="Teléfono (Opcional)"
-                                            value={editedUser.phone}
-                                            onChangeText={(text) => setEditedUser((prev) => ({ ...prev, phone: text }))}
+                                            value={editedUser.phone || ''}
+                                            onChangeText={(text) => handleInputChange('phone', text)}
                                             keyboardType="phone-pad"
                                             cursorColor={colors.accent}
                                             selectionHandleColor={colors.accent}
                                             selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                        />
+                                            maxLength={10}
+                                        >
+                                            <TextField.InputEndContent>
+                                                {userErrors.phone.length === 0 && editedUser.phone?.trim() && editedUser.phone.length === 10 ? (
+                                                    <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                                ) : userErrors.phone.length > 0 ? (
+                                                    <Ionicons name="close" size={24} color={colors.danger} />
+                                                ) : null}
+                                            </TextField.InputEndContent>
+                                        </TextField.Input>
+                                        {userErrors.phone.length > 0 ? (
+                                            <TextField.ErrorMessage>{userErrors.phone.join('\n')}</TextField.ErrorMessage>
+                                        ) : undefined}
                                     </TextField>
                                 </View>
-
                                 <View className="flex-row justify-end gap-3 pt-8">
-                                    <Button
-                                        className="flex-1"
-                                        variant="primary"
-                                        onPress={handleSave}
-                                        isDisabled={isSaving || !editedUser.name.trim() || !editedUser.email.trim() || !editedUser.position.trim()}
-                                    >
+                                    <Button className="flex-1" variant="primary" onPress={handleSave} isDisabled={isSaving || hasErrors()}>
                                         {isSaving ? (
                                             <>
                                                 <Spinner color={colors.accentForeground} size="md" />
@@ -369,18 +590,23 @@ const EditUserModalContent = ({ modalRef, user, onUserUpdated }) => {
                 </View>
             </Modalize>
 
-            <Modalize ref={roleModalRef} adjustToContentHeight={true} overlayStyle={OVERLAY_STYLE} modalStyle={{ backgroundColor: colors.background }}>
+            <Modalize
+                ref={roleModalRef}
+                adjustToContentHeight={true}
+                overlayStyle={OVERLAY_STYLE}
+                modalStyle={{ backgroundColor: colors.background }}
+                handlePosition="inside"
+            >
                 <View className="px-[6%] pt-[9%] pb-[6%]" style={{ maxHeight: MODAL_MAX_HEIGHT }}>
                     <View className="flex gap-0 mb-8">
                         <View className="flex flex-row justify-between items-center">
                             <Text className="text-foreground text-2xl font-medium">Seleccionar rol</Text>
-                            <Button isIconOnly className="bg-transparent shrink-0" onPress={onClose}>
+                            <Button isIconOnly className="bg-transparent shrink-0" onPress={() => roleModalRef.current?.close()}>
                                 <Ionicons name="close-outline" size={24} color={colors.foreground} />
                             </Button>
                         </View>
                         <Text className="text-muted-foreground">Seleccione el rol nuevo que se asignará al usuario</Text>
                     </View>
-
                     <RadioGroup value={String(editedUser.roleId)} onValueChange={(val) => selectRole(val)}>
                         {ROLE_OPTIONS.map((role) => (
                             <RadioGroup.Item
@@ -400,40 +626,141 @@ const EditUserModalContent = ({ modalRef, user, onUserUpdated }) => {
 }
 
 // =====================================================================
-// 3. MODAL DE CREACIÓN
+// 3. MODAL DE CREACIÓN (CON VALIDACIÓN)
 // =====================================================================
-const CreateUserModalContent = ({ modalRef, onUserCreated, isLoading }) => {
+const CreateUserModalContent = ({ modalRef, onUserCreated, isLoading, alertRef }) => {
     const { colors } = useTheme()
     const roleModalRef = useRef(null)
     const [isSaving, setIsSaving] = useState(false)
     const [newUser, setNewUser] = useState({ name: '', email: '', position: '', phone: '', roleId: 1 })
+    const [userErrors, setUserErrors] = useState({
+        name: [],
+        email: [],
+        position: [],
+        phone: [],
+        roleId: [],
+    })
+
+    // Definir validadores
+    const validators = {
+        name: [required, onlyLetters],
+        email: [required, validEmail],
+        position: [required, onlyLetters],
+        phone: [validPhone],
+        roleId: [validRoleId],
+    }
+
+    // Función para ejecutar validadores
+    const runValidators = (value, fns) => fns.map((fn) => fn(value)).filter(Boolean)
+
+    // Handler para cambios en inputs con validación en tiempo real
+    const handleInputChange = (field, value) => {
+        setNewUser((prev) => ({ ...prev, [field]: value }))
+        const fns = validators[field] || []
+        const errs = runValidators(value, fns)
+        setUserErrors((prev) => ({ ...prev, [field]: errs }))
+    }
 
     const onClose = () => {
         modalRef.current?.close()
+        // Resetear formulario al cerrar
+        setNewUser({ name: '', email: '', position: '', phone: '', roleId: 1 })
+        setUserErrors({
+            name: [],
+            email: [],
+            position: [],
+            phone: [],
+            roleId: [],
+        })
     }
 
     const openRoles = () => roleModalRef.current?.open()
+
     const selectRole = (val) => {
-        setNewUser({ ...newUser, roleId: Number(val) })
+        handleInputChange('roleId', Number(val))
     }
 
     const handleCreate = async () => {
-        if (!newUser.name.trim() || !newUser.email.trim() || !newUser.position.trim()) {
-            alert('Campos obligatorios faltantes')
+        // Validación final antes de crear
+        const nameErrs = runValidators(newUser.name, validators.name)
+        const emailErrs = runValidators(newUser.email, validators.email)
+        const positionErrs = runValidators(newUser.position, validators.position)
+        const phoneErrs = runValidators(newUser.phone, validators.phone)
+        const roleIdErrs = runValidators(String(newUser.roleId), validators.roleId)
+
+        if (nameErrs.length > 0 || emailErrs.length > 0 || positionErrs.length > 0 || phoneErrs.length > 0 || roleIdErrs.length > 0) {
+            setUserErrors({
+                name: nameErrs,
+                email: emailErrs,
+                position: positionErrs,
+                phone: phoneErrs,
+                roleId: roleIdErrs,
+            })
+            alertRef.current?.show('Atención', 'Por favor corrija los errores en el formulario.', 'warning')
             return
         }
+
         try {
             setIsSaving(true)
+
+            // Validación del servidor: verificar email duplicado
+            const response = await getUsersRequest()
+            const users = response.data || []
+            const exists = users.find((u) => u.email.trim().toLowerCase() === newUser.email.trim().toLowerCase())
+
+            if (exists) {
+                setUserErrors((prev) => ({
+                    ...prev,
+                    email: ['El correo electrónico ingresado ya está en uso.'],
+                }))
+                alertRef.current?.show('Error', 'El correo electrónico ingresado ya está en uso.', 'error')
+                return
+            }
+
             await createUser(newUser)
-            alert('Usuario creado correctamente')
-            setNewUser({ name: '', email: '', position: '', phone: '', roleId: 1 })
             onClose()
+            setTimeout(() => {
+                alertRef.current?.show('Éxito', 'Usuario creado correctamente', 'success')
+            }, 300)
             if (onUserCreated) onUserCreated()
         } catch (error) {
-            alert('No se pudo crear el usuario')
+            console.error('Error create:', error)
+            if (error.response?.data) {
+                const { result, title } = error.response.data
+                alertRef.current?.show('Error', title || 'Error al crear usuario', 'error')
+
+                // Procesar errores específicos de campo si existen
+                if (result && Array.isArray(result) && result.length > 0) {
+                    const newFieldErrors = { name: [], email: [], position: [], phone: [], roleId: [] }
+                    result.forEach((validationError) => {
+                        const field = validationError.field
+                        const descriptions = validationError.descriptions || []
+                        if (newFieldErrors.hasOwnProperty(field)) {
+                            newFieldErrors[field] = descriptions
+                        }
+                    })
+                    setUserErrors(newFieldErrors)
+                }
+            } else {
+                alertRef.current?.show('Error', 'No se pudo crear el usuario', 'error')
+            }
         } finally {
             setIsSaving(false)
         }
+    }
+
+    // Verificar si hay errores en el formulario
+    const hasErrors = () => {
+        return (
+            userErrors.name.length > 0 ||
+            userErrors.email.length > 0 ||
+            userErrors.position.length > 0 ||
+            userErrors.phone.length > 0 ||
+            userErrors.roleId.length > 0 ||
+            !newUser.name.trim() ||
+            !newUser.email.trim() ||
+            !newUser.position.trim()
+        )
     }
 
     return (
@@ -444,13 +771,12 @@ const CreateUserModalContent = ({ modalRef, onUserCreated, isLoading }) => {
                 avoidKeyboardLikeIOS={true}
                 overlayStyle={OVERLAY_STYLE}
                 modalStyle={{ backgroundColor: colors.background }}
+                handlePosition="inside"
             >
                 <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
-                    {/* 2. ScrollView: Habilita el desplazamiento interno */}
                     <ScrollView
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
-                        // Pasamos el padding del View original aquí para que scrollee con el contenido
                         contentContainerStyle={{
                             paddingHorizontal: '6%',
                             paddingTop: '9%',
@@ -460,68 +786,108 @@ const CreateUserModalContent = ({ modalRef, onUserCreated, isLoading }) => {
                         <View className="flex gap-0 mb-8">
                             <View className="flex flex-row justify-between items-center">
                                 <Text className="text-foreground text-2xl font-medium">Registrar usuario</Text>
-
                                 <Button isIconOnly className="bg-transparent shrink-0" onPress={onClose}>
                                     <Ionicons name="close-outline" size={24} color={colors.foreground} />
                                 </Button>
                             </View>
                             <Text className="text-muted-foreground">Ingrese los datos del nuevo usuario</Text>
                         </View>
-
                         <View className="gap-6">
-                            <TextField isRequired>
-                                <TextField.Label className="text-foreground font-medium mb-2">Nombre</TextField.Label>
+                            <TextField isRequired isInvalid={userErrors.name.length > 0}>
+                                <View className="flex-row justify-between items-center mb-2">
+                                    <TextField.Label className="text-foreground font-medium">Nombre</TextField.Label>
+                                    <Text className="text-muted-foreground text-xs">{newUser.name.length} / 50</Text>
+                                </View>
                                 <TextField.Input
                                     colors={{
                                         blurBackground: colors.accentSoft,
                                         focusBackground: colors.surface2,
-                                        blurBorder: colors.accentSoft,
-                                        focusBorder: colors.surface2,
+                                        blurBorder: userErrors.name.length > 0 ? colors.danger : colors.accentSoft,
+                                        focusBorder: userErrors.name.length > 0 ? colors.danger : colors.surface2,
                                     }}
                                     placeholder="Nombre del usuario"
                                     value={newUser.name}
-                                    onChangeText={(text) => setNewUser((prev) => ({ ...prev, name: text }))}
+                                    onChangeText={(text) => handleInputChange('name', text)}
                                     cursorColor={colors.accent}
                                     selectionHandleColor={colors.accent}
                                     selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                />
+                                    maxLength={50}
+                                >
+                                    <TextField.InputEndContent>
+                                        {userErrors.name.length === 0 && newUser.name.trim() ? (
+                                            <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                        ) : userErrors.name.length > 0 ? (
+                                            <Ionicons name="close" size={24} color={colors.danger} />
+                                        ) : null}
+                                    </TextField.InputEndContent>
+                                </TextField.Input>
+                                {userErrors.name.length > 0 ? <TextField.ErrorMessage>{userErrors.name.join('\n')}</TextField.ErrorMessage> : undefined}
                             </TextField>
-                            <TextField isRequired>
-                                <TextField.Label className="text-foreground font-medium mb-2">Correo electrónico</TextField.Label>
+
+                            <TextField isRequired isInvalid={userErrors.email.length > 0}>
+                                <View className="flex-row justify-between items-center mb-2">
+                                    <TextField.Label className="text-foreground font-medium">Correo electrónico</TextField.Label>
+                                    <Text className="text-muted-foreground text-xs">{newUser.email.length} / 50</Text>
+                                </View>
                                 <TextField.Input
                                     colors={{
                                         blurBackground: colors.accentSoft,
                                         focusBackground: colors.surface2,
-                                        blurBorder: colors.accentSoft,
-                                        focusBorder: colors.surface2,
+                                        blurBorder: userErrors.email.length > 0 ? colors.danger : colors.accentSoft,
+                                        focusBorder: userErrors.email.length > 0 ? colors.danger : colors.surface2,
                                     }}
                                     placeholder="correo@ejemplo.com"
                                     value={newUser.email}
-                                    onChangeText={(text) => setNewUser((prev) => ({ ...prev, email: text }))}
+                                    onChangeText={(text) => handleInputChange('email', text)}
                                     keyboardType="email-address"
                                     autoCapitalize="none"
                                     cursorColor={colors.accent}
                                     selectionHandleColor={colors.accent}
                                     selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                />
+                                    maxLength={50}
+                                >
+                                    <TextField.InputEndContent>
+                                        {userErrors.email.length === 0 && newUser.email.trim() ? (
+                                            <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                        ) : userErrors.email.length > 0 ? (
+                                            <Ionicons name="close" size={24} color={colors.danger} />
+                                        ) : null}
+                                    </TextField.InputEndContent>
+                                </TextField.Input>
+                                {userErrors.email.length > 0 ? <TextField.ErrorMessage>{userErrors.email.join('\n')}</TextField.ErrorMessage> : undefined}
                             </TextField>
-                            <TextField isRequired>
-                                <TextField.Label className="text-foreground font-medium mb-2">Puesto</TextField.Label>
+
+                            <TextField isRequired isInvalid={userErrors.position.length > 0}>
+                                <View className="flex-row justify-between items-center mb-2">
+                                    <TextField.Label className="text-foreground font-medium">Puesto</TextField.Label>
+                                    <Text className="text-muted-foreground text-xs">{newUser.position.length} / 50</Text>
+                                </View>
                                 <TextField.Input
                                     colors={{
                                         blurBackground: colors.accentSoft,
                                         focusBackground: colors.surface2,
-                                        blurBorder: colors.accentSoft,
-                                        focusBorder: colors.surface2,
+                                        blurBorder: userErrors.position.length > 0 ? colors.danger : colors.accentSoft,
+                                        focusBorder: userErrors.position.length > 0 ? colors.danger : colors.surface2,
                                     }}
                                     placeholder="Puesto del usuario"
                                     value={newUser.position}
-                                    onChangeText={(text) => setNewUser((prev) => ({ ...prev, position: text }))}
+                                    onChangeText={(text) => handleInputChange('position', text)}
                                     cursorColor={colors.accent}
                                     selectionHandleColor={colors.accent}
                                     selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                />
+                                    maxLength={50}
+                                >
+                                    <TextField.InputEndContent>
+                                        {userErrors.position.length === 0 && newUser.position.trim() ? (
+                                            <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                        ) : userErrors.position.length > 0 ? (
+                                            <Ionicons name="close" size={24} color={colors.danger} />
+                                        ) : null}
+                                    </TextField.InputEndContent>
+                                </TextField.Input>
+                                {userErrors.position.length > 0 ? <TextField.ErrorMessage>{userErrors.position.join('\n')}</TextField.ErrorMessage> : undefined}
                             </TextField>
+
                             <View style={{ zIndex: 1000 }}>
                                 <Text className="text-foreground font-medium mb-2">
                                     Rol <Text className="text-danger">*</Text>
@@ -532,34 +898,43 @@ const CreateUserModalContent = ({ modalRef, onUserCreated, isLoading }) => {
                                         <Ionicons name="chevron-down-outline" size={24} color={colors.accent} />
                                     </View>
                                 </TouchableOpacity>
+                                {userErrors.roleId.length > 0 ? <Text className="text-danger text-sm mt-1">{userErrors.roleId.join('\n')}</Text> : null}
                             </View>
-                            <TextField>
-                                <TextField.Label className="text-foreground font-medium mb-2">Teléfono</TextField.Label>
+
+                            <TextField isInvalid={userErrors.phone.length > 0}>
+                                <View className="flex-row justify-between items-center mb-2">
+                                    <TextField.Label className="text-foreground font-medium">Teléfono</TextField.Label>
+                                    <Text className="text-muted-foreground text-xs">{newUser.phone?.length || 0} / 10</Text>
+                                </View>
                                 <TextField.Input
                                     colors={{
                                         blurBackground: colors.accentSoft,
                                         focusBackground: colors.surface2,
-                                        blurBorder: colors.accentSoft,
-                                        focusBorder: colors.surface2,
+                                        blurBorder: userErrors.phone.length > 0 ? colors.danger : colors.accentSoft,
+                                        focusBorder: userErrors.phone.length > 0 ? colors.danger : colors.surface2,
                                     }}
                                     placeholder="Teléfono (Opcional)"
-                                    value={newUser.phone}
-                                    onChangeText={(text) => setNewUser((prev) => ({ ...prev, phone: text }))}
+                                    value={newUser.phone || ''}
+                                    onChangeText={(text) => handleInputChange('phone', text)}
                                     keyboardType="phone-pad"
                                     cursorColor={colors.accent}
                                     selectionHandleColor={colors.accent}
                                     selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                />
+                                    maxLength={10}
+                                >
+                                    <TextField.InputEndContent>
+                                        {userErrors.phone.length === 0 && newUser.phone?.trim() && newUser.phone.length === 10 ? (
+                                            <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                        ) : userErrors.phone.length > 0 ? (
+                                            <Ionicons name="close" size={24} color={colors.danger} />
+                                        ) : null}
+                                    </TextField.InputEndContent>
+                                </TextField.Input>
+                                {userErrors.phone.length > 0 ? <TextField.ErrorMessage>{userErrors.phone.join('\n')}</TextField.ErrorMessage> : undefined}
                             </TextField>
                         </View>
-
                         <View className="flex-row justify-end gap-3 pt-8">
-                            <Button
-                                className="flex-1"
-                                variant="primary"
-                                onPress={handleCreate}
-                                isDisabled={isLoading || isSaving || !newUser.name.trim() || !newUser.email.trim() || !newUser.position.trim()}
-                            >
+                            <Button className="flex-1" variant="primary" onPress={handleCreate} isDisabled={isLoading || isSaving || hasErrors()}>
                                 {isSaving ? (
                                     <>
                                         <Spinner color={colors.accentForeground} size="md" />
@@ -577,18 +952,23 @@ const CreateUserModalContent = ({ modalRef, onUserCreated, isLoading }) => {
                 </View>
             </Modalize>
 
-            <Modalize ref={roleModalRef} adjustToContentHeight={true} overlayStyle={OVERLAY_STYLE} modalStyle={{ backgroundColor: colors.background }}>
+            <Modalize
+                ref={roleModalRef}
+                adjustToContentHeight={true}
+                overlayStyle={OVERLAY_STYLE}
+                modalStyle={{ backgroundColor: colors.background }}
+                handlePosition="inside"
+            >
                 <View className="px-[6%] pt-[9%] pb-[6%]" style={{ maxHeight: MODAL_MAX_HEIGHT }}>
                     <View className="flex gap-0 mb-8">
                         <View className="flex flex-row justify-between items-center">
                             <Text className="text-foreground text-2xl font-medium">Seleccionar rol</Text>
-                            <Button isIconOnly className="bg-transparent shrink-0" onPress={onClose}>
+                            <Button isIconOnly className="bg-transparent shrink-0" onPress={() => roleModalRef.current?.close()}>
                                 <Ionicons name="close-outline" size={24} color={colors.foreground} />
                             </Button>
                         </View>
                         <Text className="text-muted-foreground">Seleccione el rol que se asignará al nuevo usuario</Text>
                     </View>
-
                     <RadioGroup value={String(newUser.roleId)} onValueChange={(val) => selectRole(val)}>
                         {ROLE_OPTIONS.map((role) => (
                             <RadioGroup.Item
@@ -610,7 +990,7 @@ const CreateUserModalContent = ({ modalRef, onUserCreated, isLoading }) => {
 // =====================================================================
 // 4. MODAL DE STATUS
 // =====================================================================
-const StatusChangeModalContent = ({ modalRef, user, onStatusChanged }) => {
+const StatusChangeModalContent = ({ modalRef, user, onStatusChanged, alertRef }) => {
     const { colors } = useTheme()
     const [isChangingStatus, setIsChangingStatus] = useState(false)
 
@@ -621,13 +1001,16 @@ const StatusChangeModalContent = ({ modalRef, user, onStatusChanged }) => {
             setIsChangingStatus(true)
             const response = await changeStatus(user.email)
             if (response.type === 'SUCCESS') {
-                if (onStatusChanged) onStatusChanged()
                 onClose()
+                setTimeout(() => {
+                    alertRef.current?.show('Éxito', 'Estado actualizado correctamente', 'success')
+                }, 300)
+                if (onStatusChanged) onStatusChanged()
             } else {
-                alert('No se pudo cambiar el estado')
+                alertRef.current?.show('Error', 'No se pudo cambiar el estado', 'error')
             }
         } catch (error) {
-            alert('Error al cambiar estado')
+            alertRef.current?.show('Error', 'Error al cambiar estado', 'error')
         } finally {
             setIsChangingStatus(false)
         }
@@ -640,6 +1023,7 @@ const StatusChangeModalContent = ({ modalRef, user, onStatusChanged }) => {
             avoidKeyboardLikeIOS={true}
             overlayStyle={OVERLAY_STYLE}
             modalStyle={{ backgroundColor: colors.background }}
+            handlePosition="inside"
         >
             <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
                 <ScrollView
@@ -668,7 +1052,6 @@ const StatusChangeModalContent = ({ modalRef, user, onStatusChanged }) => {
                                         : `¿Está seguro que desea habilitar a ${user.name}? El usuario podrá acceder al sistema nuevamente.`}
                                 </Text>
                             </View>
-
                             <View className="flex-row justify-end gap-3">
                                 <Button className="flex-1" variant="primary" onPress={handleChangeStatus} isDisabled={isChangingStatus}>
                                     {isChangingStatus ? (
@@ -697,7 +1080,6 @@ const StatusChangeModalContent = ({ modalRef, user, onStatusChanged }) => {
         </Modalize>
     )
 }
-
 // =====================================================================
 // PANTALLA PRINCIPAL
 // =====================================================================
@@ -705,7 +1087,6 @@ const UsersScreen = () => {
     const [isLoading, setIsLoading] = useState(true)
     const [users, setUsers] = useState([])
     const { colors } = useTheme()
-
     // Estados de filtros
     const [searchValue, setSearchValue] = useState('')
     const [sortOption, setSortOption] = useState({ value: 'name', label: 'Nombre' })
@@ -713,7 +1094,7 @@ const UsersScreen = () => {
     const [rowsPerPage, setRowsPerPage] = useState('10')
     const [page, setPage] = useState(1)
 
-    // NUEVO ESTADO: Controlamos el acordeón para evitar que se cierre al re-renderizar
+    // Controlamos el acordeón
     const [expandedKeys, setExpandedKeys] = useState(undefined)
 
     // Referencias y estados para Modales Globales
@@ -721,6 +1102,7 @@ const UsersScreen = () => {
     const createModalRef = useRef(null)
     const editModalRef = useRef(null)
     const statusModalRef = useRef(null)
+    const alertRef = useRef(null)
 
     const [userToEdit, setUserToEdit] = useState(null)
     const [userToChangeStatus, setUserToChangeStatus] = useState(null)
@@ -728,12 +1110,10 @@ const UsersScreen = () => {
     // Handlers para abrir modales
     const openFilterModal = () => filterModalRef.current?.open()
     const openCreateModal = () => createModalRef.current?.open()
-
     const openEditModal = (user) => {
         setUserToEdit(user)
         editModalRef.current?.open()
     }
-
     const openStatusModal = (user) => {
         setUserToChangeStatus(user)
         statusModalRef.current?.open()
@@ -784,6 +1164,7 @@ const UsersScreen = () => {
     }, [users, searchValue, statusFilter, sortOption])
 
     const pages = Math.ceil(filteredAndSortedItems.length / Number(rowsPerPage))
+
     const paginatedItems = useMemo(() => {
         const start = (page - 1) * Number(rowsPerPage)
         return filteredAndSortedItems.slice(start, start + Number(rowsPerPage))
@@ -797,18 +1178,15 @@ const UsersScreen = () => {
                         <View className="w-full flex flex-row justify-between items-end">
                             <Text className="font-bold text-[32px] text-foreground">Usuarios</Text>
                             <View className="flex flex-row gap-2 items-center">
-                                {/* Botón Filtros */}
                                 <Button isIconOnly className="bg-transparent shrink-0" isDisabled={isLoading} onPress={openFilterModal}>
                                     <Ionicons name="filter-outline" size={24} color={colors.foreground} />
                                 </Button>
-                                {/* Botón Crear */}
                                 <Button isIconOnly className="font-semibold shrink-0" variant="primary" isDisabled={isLoading} onPress={openCreateModal}>
                                     <Ionicons name="add-outline" size={24} color={colors.accentForeground} />
                                 </Button>
                             </View>
                         </View>
                     </View>
-
                     <View className="mb-4 mt-4 flex-row justify-between items-center">
                         <Text className="text-[14px] text-muted-foreground">{filteredAndSortedItems.length} Resultados</Text>
                         <View className="flex flex-row gap-2">
@@ -831,7 +1209,6 @@ const UsersScreen = () => {
                             )}
                         </View>
                     </View>
-
                     <TextField className="mb-4">
                         <TextField.Input
                             colors={{
@@ -853,7 +1230,6 @@ const UsersScreen = () => {
                             </TextField.InputEndContent>
                         </TextField.Input>
                     </TextField>
-
                     {isLoading ? (
                         <View className="py-12 items-center">
                             <Spinner color={colors.foreground} size="md" />
@@ -863,7 +1239,6 @@ const UsersScreen = () => {
                             <View className="p-0">
                                 {paginatedItems.length > 0 ? (
                                     <>
-                                        {/* AÑADIDO: Props value y onValueChange para controlar el estado del acordeón */}
                                         <Accordion
                                             selectionMode="single"
                                             className="border-0"
@@ -890,7 +1265,6 @@ const UsersScreen = () => {
                                                                     {item.email}
                                                                 </Text>
                                                             </View>
-
                                                             <View className="flex flex-row items-center gap-2">
                                                                 <TouchableOpacity
                                                                     onPress={() => openEditModal(item)}
@@ -899,7 +1273,6 @@ const UsersScreen = () => {
                                                                 >
                                                                     <Ionicons name="create-outline" size={24} color={colors.foreground} />
                                                                 </TouchableOpacity>
-
                                                                 <Accordion.Indicator
                                                                     className="h-14 w-14 flex items-center justify-center"
                                                                     iconProps={{
@@ -910,10 +1283,8 @@ const UsersScreen = () => {
                                                             </View>
                                                         </View>
                                                     </Accordion.Trigger>
-
                                                     <Accordion.Content className="bg-accent-soft px-4 pb-4">
                                                         <View className="h-px bg-surface-3 mt-0 mb-4" />
-
                                                         <View className="gap-3">
                                                             <View className="gap-3">
                                                                 <View className="flex-row items-start justify-between">
@@ -922,7 +1293,6 @@ const UsersScreen = () => {
                                                                         {formatDateLiteral(item.updatedAt, true)}
                                                                     </Text>
                                                                 </View>
-
                                                                 <View className="flex-row items-start justify-between">
                                                                     <Text className="text-[14px] text-muted-foreground w-28 pt-0.5">Puesto</Text>
                                                                     <Text
@@ -932,25 +1302,24 @@ const UsersScreen = () => {
                                                                         {item.position}
                                                                     </Text>
                                                                 </View>
-
                                                                 <View className="flex-row items-start justify-between">
                                                                     <Text className="text-[14px] text-muted-foreground w-28 pt-0.5">Rol</Text>
                                                                     <Text className="text-[14px] text-foreground text-right flex-1" numberOfLines={2}>
                                                                         {item.role}
                                                                     </Text>
                                                                 </View>
-
                                                                 <View className="flex-row items-start justify-between">
                                                                     <Text className="text-[14px] text-muted-foreground w-28 pt-0.5">Teléfono</Text>
                                                                     <Text
-                                                                        className={`text-[14px] text-right flex-1 ${item.phone ? 'text-foreground' : 'text-muted-foreground italic'}`}
+                                                                        className={`text-[14px] text-right flex-1 ${
+                                                                            item.phone ? 'text-foreground' : 'text-muted-foreground italic'
+                                                                        }`}
                                                                         numberOfLines={2}
                                                                     >
                                                                         {item.phone || 'No especificado'}
                                                                     </Text>
                                                                 </View>
                                                             </View>
-
                                                             <View className="flex-row items-center justify-between">
                                                                 <Text className="text-[14px] text-muted-foreground">Estado</Text>
                                                                 <TouchableOpacity onPress={() => openStatusModal(item)} activeOpacity={0.8}>
@@ -997,7 +1366,6 @@ const UsersScreen = () => {
                                                     onPress={() => setPage((p) => Math.min(pages, p + 1))}
                                                 >
                                                     <Text className="text-muted-foreground">/ {pages || 1}</Text>
-
                                                     <Ionicons
                                                         name="chevron-forward-outline"
                                                         size={24}
@@ -1015,7 +1383,6 @@ const UsersScreen = () => {
                     )}
                 </View>
             </ScrollableLayout>
-
             <FiltersModalContent
                 modalRef={filterModalRef}
                 sortOption={sortOption}
@@ -1026,12 +1393,10 @@ const UsersScreen = () => {
                 setRowsPerPage={setRowsPerPage}
                 setPage={setPage}
             />
-
-            <CreateUserModalContent modalRef={createModalRef} onUserCreated={fetchData} isLoading={isLoading} />
-
-            <EditUserModalContent modalRef={editModalRef} user={userToEdit} onUserUpdated={fetchData} />
-
-            <StatusChangeModalContent modalRef={statusModalRef} user={userToChangeStatus} onStatusChanged={fetchData} />
+            <CreateUserModalContent modalRef={createModalRef} onUserCreated={fetchData} isLoading={isLoading} alertRef={alertRef} />
+            <EditUserModalContent modalRef={editModalRef} user={userToEdit} onUserUpdated={fetchData} alertRef={alertRef} />
+            <StatusChangeModalContent modalRef={statusModalRef} user={userToChangeStatus} onStatusChanged={fetchData} alertRef={alertRef} />
+            <CustomAlert ref={alertRef} />
         </View>
     )
 }

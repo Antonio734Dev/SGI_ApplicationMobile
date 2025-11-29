@@ -1,21 +1,24 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react'
-import { Text, View, Platform, TouchableOpacity, Dimensions, KeyboardAvoidingView } from 'react-native'
+import { Text, View, TouchableOpacity, Platform, Dimensions } from 'react-native'
 import ScrollableLayout from '../../layouts/ScrollableLayout'
-// Se elimina Modalize, usamos Dialog
-import { Accordion, Button, ScrollShadow, Spinner, Switch, TextField, useTheme, Select, Dialog } from 'heroui-native'
+import { Accordion, Button, RadioGroup, ScrollShadow, Spinner, Switch, TextField, useTheme } from 'heroui-native'
 import { getUsersRequest, updateUser, changeStatus, createUser } from '../../services/user'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { formatDateLiteral } from '../../utils/utils'
+import { Modalize } from 'react-native-modalize'
 import { ScrollView } from 'react-native-gesture-handler'
 
+const { height } = Dimensions.get('window')
+const MODAL_MAX_HEIGHT = height * 0.75
+const OVERLAY_STYLE = { backgroundColor: 'rgba(0, 0, 0, 0.2)' }
+
 // =====================================================================
-// CONSTANTES Y UTILIDADES DE ROLES
+// CONSTANTES
 // =====================================================================
 const ROLE_OPTIONS = [
     { value: '1', label: 'Administrador' },
-    { value: '2', label: 'Supervisor' },
-    { value: '3', label: 'Operador' },
+    { value: '2', label: 'Usuario' },
 ]
 
 const getRoleLabel = (id) => {
@@ -24,21 +27,170 @@ const getRoleLabel = (id) => {
 }
 
 // =====================================================================
-// SUB-COMPONENTE: DIALOG DE EDICIÓN POR USUARIO
+// 1. MODAL DE FILTROS
 // =====================================================================
-const EditUserDialog = ({ user, onUserUpdated }) => {
-    const { colors } = useTheme()
-    const [isOpen, setIsOpen] = useState(false)
-    const [isSaving, setIsSaving] = useState(false)
-    const [editedUser, setEditedUser] = useState({ ...user })
+// Asegúrate de importar RadioGroup de heroui-native al inicio de tu archivo
+// import { RadioGroup, ... } from 'heroui-native';
 
-    // Resetear datos cuando se abre
+const FiltersModalContent = ({ modalRef, sortOption, setSortOption, statusFilter, setStatusFilter, rowsPerPage, setRowsPerPage, setPage }) => {
+    const { colors } = useTheme()
+
+    const onClose = () => {
+        modalRef.current?.close()
+    }
+
+    // Definimos las opciones por separado para mapearlas limpiamente
+    const sortOptions = [
+        { label: 'Nombre', value: 'name' },
+        { label: 'Correo', value: 'email' },
+        { label: 'Puesto', value: 'position' },
+        { label: 'Rol', value: 'role' },
+    ]
+
+    const statusOptions = [
+        { label: 'Todos los estatus', value: 'all' },
+        { label: 'Activo', value: 'activo' },
+        { label: 'Inactivo', value: 'inactivo' },
+    ]
+
+    const rowsOptions = [
+        { label: '5 filas', value: '5' },
+        { label: '10 filas', value: '10' },
+        { label: '20 filas', value: '20' },
+        { label: '50 filas', value: '50' },
+    ]
+
+    // Handlers específicos para cada grupo
+    const handleSortChange = (val) => {
+        const selectedLabel = sortOptions.find((opt) => opt.value === val)?.label
+        setSortOption({ value: val, label: selectedLabel })
+        // onClose() // Descomenta si quieres que se cierre al seleccionar
+    }
+
+    const handleStatusChange = (val) => {
+        setStatusFilter(val)
+        // onClose()
+    }
+
+    const handleRowsChange = (val) => {
+        setRowsPerPage(val)
+        setPage(1)
+        // onClose()
+    }
+
+    return (
+        <Modalize
+            ref={modalRef}
+            adjustToContentHeight={true}
+            avoidKeyboardLikeIOS={true}
+            overlayStyle={OVERLAY_STYLE}
+            modalStyle={{ backgroundColor: colors.background }}
+        >
+            <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{
+                        paddingHorizontal: '6%',
+                        paddingTop: '9%',
+                        paddingBottom: '6%',
+                    }}
+                >
+                    {/* Header del Modal */}
+                    <View className="flex gap-0 mb-8">
+                        <View className="flex flex-row justify-between items-center">
+                            <Text className="text-foreground text-2xl font-medium">Opciones</Text>
+                            <Button isIconOnly className="bg-transparent shrink-0" onPress={onClose}>
+                                <Ionicons name="close-outline" size={24} color={colors.foreground} />
+                            </Button>
+                        </View>
+                        <Text className="text-muted-foreground">Ordena y filtra tus resultados</Text>
+                    </View>
+
+                    <View className="gap-6 pb-4">
+                        {/* GRUPO 1: ORDENAR POR */}
+                        <View>
+                            <View className="bg-surface-1 rounded-lg p-2 mb-2">
+                                <Text className="text-[12px] font-semibold text-muted-foreground">Ordenar por</Text>
+                            </View>
+                            <RadioGroup value={sortOption.value} onValueChange={handleSortChange}>
+                                {sortOptions.map((opt) => (
+                                    <RadioGroup.Item
+                                        key={opt.value}
+                                        value={opt.value}
+                                        className="flex-row justify-between items-center h-14 pr-4 border-b border-surface-2"
+                                    >
+                                        <RadioGroup.Title className="text-foreground">{opt.label}</RadioGroup.Title>
+                                        <RadioGroup.Indicator />
+                                    </RadioGroup.Item>
+                                ))}
+                            </RadioGroup>
+                        </View>
+
+                        {/* GRUPO 2: FILTRAR POR ESTADO */}
+                        <View>
+                            <View className="bg-surface-1 rounded-lg p-2 mb-2">
+                                <Text className="text-[12px] font-semibold text-muted-foreground">Filtrar por estado</Text>
+                            </View>
+                            <RadioGroup value={statusFilter} onValueChange={handleStatusChange}>
+                                {statusOptions.map((opt) => (
+                                    <RadioGroup.Item
+                                        key={opt.value}
+                                        value={opt.value}
+                                        className="flex-row justify-between items-center h-14 pr-4 border-b border-surface-2"
+                                    >
+                                        <RadioGroup.Title className="text-foreground">{opt.label}</RadioGroup.Title>
+                                        <RadioGroup.Indicator />
+                                    </RadioGroup.Item>
+                                ))}
+                            </RadioGroup>
+                        </View>
+
+                        {/* GRUPO 3: FILAS POR PÁGINA */}
+                        <View>
+                            <View className="bg-surface-1 rounded-lg p-2 mb-2">
+                                <Text className="text-[12px] font-semibold text-muted-foreground">Filas por página</Text>
+                            </View>
+                            <RadioGroup value={rowsPerPage} onValueChange={handleRowsChange}>
+                                {rowsOptions.map((opt) => (
+                                    <RadioGroup.Item
+                                        key={opt.value}
+                                        value={opt.value}
+                                        className="flex-row justify-between items-center h-14 pr-4 border-b border-surface-2"
+                                    >
+                                        <RadioGroup.Title className="text-foreground">{opt.label}</RadioGroup.Title>
+                                        <RadioGroup.Indicator />
+                                    </RadioGroup.Item>
+                                ))}
+                            </RadioGroup>
+                        </View>
+                    </View>
+                </ScrollView>
+            </View>
+        </Modalize>
+    )
+}
+
+// =====================================================================
+// 2. MODAL DE EDICIÓN
+// =====================================================================
+const EditUserModalContent = ({ modalRef, user, onUserUpdated }) => {
+    const { colors } = useTheme()
+    const roleModalRef = useRef(null)
+    const [isSaving, setIsSaving] = useState(false)
+    const [editedUser, setEditedUser] = useState({ name: '', email: '', position: '', phone: '', roleId: 1 })
+
     useEffect(() => {
-        if (isOpen) setEditedUser({ ...user })
-    }, [isOpen, user])
+        if (user) {
+            setEditedUser({ ...user })
+        }
+    }, [user])
+
+    const onClose = () => {
+        modalRef.current?.close()
+    }
 
     const handleSave = async () => {
-        if (!editedUser.name.trim() || !editedUser.email.trim() || !editedUser.position.trim()) {
+        if (!editedUser.name || !editedUser.name.trim() || !editedUser.email.trim() || !editedUser.position.trim()) {
             alert('Campos obligatorios faltantes')
             return
         }
@@ -55,196 +207,215 @@ const EditUserDialog = ({ user, onUserUpdated }) => {
             const response = await updateUser(userToUpdate)
             if (response.type === 'SUCCESS') {
                 alert(`Usuario ${editedUser.name} actualizado correctamente`)
-                setIsOpen(false)
+                onClose()
                 if (onUserUpdated) onUserUpdated()
             } else {
                 alert('No se pudo actualizar el usuario')
             }
         } catch (error) {
-            console.error('Error al actualizar usuario:', error)
-            alert(error.response?.data?.message || 'Error al actualizar el usuario')
+            console.error('Error update:', error)
+            alert(error.response?.data?.message || 'Error al actualizar')
         } finally {
             setIsSaving(false)
         }
     }
 
+    const openRoles = () => roleModalRef.current?.open()
+    const selectRole = (val) => {
+        setEditedUser({ ...editedUser, roleId: Number(val) })
+    }
+
     return (
-        <View className="flex-1">
-            <Dialog isOpen={isOpen} onOpenChange={setIsOpen}>
-                <Dialog.Trigger asChild>
-                    <Button className="flex-1" variant="primary">
-                        <Ionicons name="create-outline" size={24} color={colors.accentForeground} />
-                        <Button.Label className="text-[14px]">Editar</Button.Label>
-                    </Button>
-                </Dialog.Trigger>
-
-                <Dialog.Portal className="p-0 m-0">
-                    <Dialog.Overlay className="bg-black/30" />
-                    <KeyboardAvoidingView behavior="padding" className="flex-1 justify-end z-50">
-                        <Dialog.Content className="w-full mt-[28%] px-[6%] pt-[12%] rounded-t-2xl rounded-b-none">
-                            <View className="p-0 gap-4 w-full">
-                                <ScrollView showsVerticalScrollIndicator={false}>
-                                    {/* Header */}
-                                    <View className="flex-row justify-between items-center mb-2">
-                                        <Text className="text-foreground text-2xl font-bold">Editar Usuario</Text>
-                                    </View>
-
-                                    <Text className="text-muted tex t-[14px] -mt-3 mb-2">Modifica la información del usuario</Text>
-
-                                    {/* Formulario */}
-                                    <View className="gap-4">
-                                        <TextField>
-                                            <TextField.Label className="text-foreground font-medium mb-2">Nombre *</TextField.Label>
-                                            <TextField.Input
-                                                colors={{
-                                                    blurBackground: colors.surface2,
-                                                    focusBackground: colors.surface2,
-                                                    blurBorder: colors.surface3,
-                                                    focusBorder: colors.accent,
-                                                }}
-                                                placeholder="Nombre del usuario"
-                                                value={editedUser.name}
-                                                onChangeText={(text) => setEditedUser((prev) => ({ ...prev, name: text }))}
-                                                cursorColor={colors.accent}
-                                                selectionHandleColor={colors.accent}
-                                                selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                            />
-                                        </TextField>
-
-                                        <TextField>
-                                            <TextField.Label className="text-foreground font-medium mb-2">Correo Electrónico *</TextField.Label>
-                                            <TextField.Input
-                                                colors={{
-                                                    blurBackground: colors.surface2,
-                                                    focusBackground: colors.surface2,
-                                                    blurBorder: colors.surface3,
-                                                    focusBorder: colors.accent,
-                                                }}
-                                                placeholder="correo@ejemplo.com"
-                                                value={editedUser.email}
-                                                onChangeText={(text) => setEditedUser((prev) => ({ ...prev, email: text }))}
-                                                keyboardType="email-address"
-                                                autoCapitalize="none"
-                                                cursorColor={colors.accent}
-                                                selectionHandleColor={colors.accent}
-                                                selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                            />
-                                        </TextField>
-
-                                        <TextField>
-                                            <TextField.Label className="text-foreground font-medium mb-2">Puesto *</TextField.Label>
-                                            <TextField.Input
-                                                colors={{
-                                                    blurBackground: colors.surface2,
-                                                    focusBackground: colors.surface2,
-                                                    blurBorder: colors.surface3,
-                                                    focusBorder: colors.accent,
-                                                }}
-                                                placeholder="Puesto del usuario"
-                                                value={editedUser.position}
-                                                onChangeText={(text) => setEditedUser((prev) => ({ ...prev, position: text }))}
-                                                cursorColor={colors.accent}
-                                                selectionHandleColor={colors.accent}
-                                                selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                            />
-                                        </TextField>
-
-                                        <View style={{ zIndex: 1000 }}>
-                                            <Text className="text-foreground font-medium mb-2">Rol *</Text>
-                                            <Select
-                                                value={{ value: String(editedUser.roleId), label: getRoleLabel(editedUser.roleId) }}
-                                                onValueChange={(opt) => setEditedUser({ ...editedUser, roleId: Number(opt.value) })}
-                                            >
-                                                <Select.Trigger>
-                                                    <View className="w-full h-14 flex-row items-center justify-between px-4 rounded-xl bg-surface-2 border border-surface-3">
-                                                        <Text className="text-foreground font-medium">{getRoleLabel(editedUser.roleId)}</Text>
-                                                        <Ionicons name="chevron-down-outline" size={24} color={colors.muted} />
-                                                    </View>
-                                                </Select.Trigger>
-                                                <Select.Portal>
-                                                    <Select.Overlay className="bg-black/30" />
-                                                    <Select.Content presentation="modal" className="bg-surface-1 rounded-t-2xl">
-                                                        {ROLE_OPTIONS.map((role) => (
-                                                            <Select.Item
-                                                                key={role.value}
-                                                                value={role.value}
-                                                                label={role.label}
-                                                                className="p-4 border-b border-surface-2"
-                                                            >
-                                                                <View className="flex-row justify-between items-center w-full">
-                                                                    <Text className="text-foreground text-lg">{role.label}</Text>
-                                                                    {String(editedUser.roleId) === role.value && (
-                                                                        <Ionicons name="checkmark-outline" size={24} color={colors.accent} />
-                                                                    )}
-                                                                </View>
-                                                            </Select.Item>
-                                                        ))}
-                                                    </Select.Content>
-                                                </Select.Portal>
-                                            </Select>
-                                        </View>
-
-                                        <TextField>
-                                            <TextField.Label className="text-foreground font-medium mb-2">Teléfono</TextField.Label>
-                                            <TextField.Input
-                                                colors={{
-                                                    blurBackground: colors.surface2,
-                                                    focusBackground: colors.surface2,
-                                                    blurBorder: colors.surface3,
-                                                    focusBorder: colors.accent,
-                                                }}
-                                                placeholder="Teléfono del usuario"
-                                                value={editedUser.phone}
-                                                onChangeText={(text) => setEditedUser((prev) => ({ ...prev, phone: text }))}
-                                                keyboardType="phone-pad"
-                                                cursorColor={colors.accent}
-                                                selectionHandleColor={colors.accent}
-                                                selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                            />
-                                        </TextField>
-                                    </View>
-
-                                    {/* Botones de acción */}
-                                    <View className="flex-row justify-end gap-3 pt-6 pb-[6%]">
-                                        <Dialog.Close asChild>
-                                            <Button className="flex-1 bg-surface-2" isDisabled={isSaving}>
-                                                <Button.Label className="text-foreground">Cancelar</Button.Label>
-                                            </Button>
-                                        </Dialog.Close>
-                                        <Button
-                                            className="flex-1"
-                                            variant="primary"
-                                            onPress={handleSave}
-                                            isDisabled={isSaving || !editedUser.name.trim() || !editedUser.email.trim() || !editedUser.position.trim()}
-                                        >
-                                            {isSaving ? (
-                                                <Spinner size="sm" color={colors.accentForeground} />
-                                            ) : (
-                                                <>
-                                                    <Ionicons name="checkmark-outline" size={24} color={colors.accentForeground} />
-                                                    <Button.Label>Guardar</Button.Label>
-                                                </>
-                                            )}
+        <>
+            <Modalize
+                ref={modalRef}
+                adjustToContentHeight={true}
+                avoidKeyboardLikeIOS={true}
+                overlayStyle={OVERLAY_STYLE}
+                modalStyle={{ backgroundColor: colors.background }}
+            >
+                <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        contentContainerStyle={{
+                            paddingHorizontal: '6%',
+                            paddingTop: '9%',
+                            paddingBottom: '6%',
+                        }}
+                    >
+                        {user ? (
+                            <>
+                                <View className="flex gap-0 mb-8">
+                                    <View className="flex flex-row justify-between items-center">
+                                        <Text className="text-foreground text-2xl font-medium">Editar usuario</Text>
+                                        <Button isIconOnly className="bg-transparent shrink-0" onPress={onClose}>
+                                            <Ionicons name="close-outline" size={24} color={colors.foreground} />
                                         </Button>
                                     </View>
-                                </ScrollView>
-                            </View>
-                        </Dialog.Content>
-                    </KeyboardAvoidingView>
-                </Dialog.Portal>
-            </Dialog>
-        </View>
+                                    <Text className="text-muted-foreground">Edite los datos del usuario</Text>
+                                </View>
+
+                                <View className="gap-6">
+                                    <TextField isRequired>
+                                        <TextField.Label className="text-foreground font-medium mb-2">Nombre</TextField.Label>
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: colors.accentSoft,
+                                                focusBorder: colors.surface2,
+                                            }}
+                                            placeholder="Nombre del usuario"
+                                            value={editedUser.name}
+                                            onChangeText={(text) => setEditedUser((prev) => ({ ...prev, name: text }))}
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                        />
+                                    </TextField>
+                                    <TextField isRequired>
+                                        <TextField.Label className="text-foreground font-medium mb-2">Correo electrónico </TextField.Label>
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: colors.accentSoft,
+                                                focusBorder: colors.surface2,
+                                            }}
+                                            placeholder="correo@ejemplo.com"
+                                            value={editedUser.email}
+                                            onChangeText={(text) => setEditedUser((prev) => ({ ...prev, email: text }))}
+                                            keyboardType="email-address"
+                                            autoCapitalize="none"
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                        />
+                                    </TextField>
+                                    <TextField isRequired>
+                                        <TextField.Label className="text-foreground font-medium mb-2">Puesto</TextField.Label>
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: colors.accentSoft,
+                                                focusBorder: colors.surface2,
+                                            }}
+                                            placeholder="Puesto del usuario"
+                                            value={editedUser.position}
+                                            onChangeText={(text) => setEditedUser((prev) => ({ ...prev, position: text }))}
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                        />
+                                    </TextField>
+                                    <View style={{ zIndex: 1000 }}>
+                                        <Text className="text-foreground font-medium mb-2">
+                                            Rol <Text className="text-danger">*</Text>
+                                        </Text>
+                                        <TouchableOpacity onPress={openRoles}>
+                                            <View className="w-full h-12 flex-row items-center justify-between px-4 rounded-lg bg-accent-soft">
+                                                <Text className="text-foreground font-medium">{getRoleLabel(editedUser.roleId)}</Text>
+                                                <Ionicons name="chevron-down-outline" size={24} color={colors.accent} />
+                                            </View>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <TextField>
+                                        <TextField.Label className="text-foreground font-medium mb-2">Teléfono</TextField.Label>
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: colors.accentSoft,
+                                                focusBorder: colors.surface2,
+                                            }}
+                                            placeholder="Teléfono (Opcional)"
+                                            value={editedUser.phone}
+                                            onChangeText={(text) => setEditedUser((prev) => ({ ...prev, phone: text }))}
+                                            keyboardType="phone-pad"
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                        />
+                                    </TextField>
+                                </View>
+
+                                <View className="flex-row justify-end gap-3 pt-8">
+                                    <Button
+                                        className="flex-1"
+                                        variant="primary"
+                                        onPress={handleSave}
+                                        isDisabled={isSaving || !editedUser.name.trim() || !editedUser.email.trim() || !editedUser.position.trim()}
+                                    >
+                                        {isSaving ? (
+                                            <>
+                                                <Spinner color={colors.accentForeground} size="md" />
+                                                <Button.Label>Guardando...</Button.Label>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Ionicons name="checkmark-outline" size={24} color={colors.accentForeground} />
+                                                <Button.Label>Guardar</Button.Label>
+                                            </>
+                                        )}
+                                    </Button>
+                                </View>
+                            </>
+                        ) : (
+                            <View className="h-20" />
+                        )}
+                    </ScrollView>
+                </View>
+            </Modalize>
+
+            <Modalize ref={roleModalRef} adjustToContentHeight={true} overlayStyle={OVERLAY_STYLE} modalStyle={{ backgroundColor: colors.background }}>
+                <View className="px-[6%] pt-[9%] pb-[6%]" style={{ maxHeight: MODAL_MAX_HEIGHT }}>
+                    <View className="flex gap-0 mb-8">
+                        <View className="flex flex-row justify-between items-center">
+                            <Text className="text-foreground text-2xl font-medium">Seleccionar rol</Text>
+                            <Button isIconOnly className="bg-transparent shrink-0" onPress={onClose}>
+                                <Ionicons name="close-outline" size={24} color={colors.foreground} />
+                            </Button>
+                        </View>
+                        <Text className="text-muted-foreground">Seleccione el rol nuevo que se asignará al usuario</Text>
+                    </View>
+
+                    <RadioGroup value={String(editedUser.roleId)} onValueChange={(val) => selectRole(val)}>
+                        {ROLE_OPTIONS.map((role) => (
+                            <RadioGroup.Item
+                                key={role.value}
+                                value={role.value}
+                                className="flex-row justify-between items-center h-14 pr-4 border-b border-surface-2"
+                            >
+                                <RadioGroup.Title className="text-foreground">{role.label}</RadioGroup.Title>
+                                <RadioGroup.Indicator />
+                            </RadioGroup.Item>
+                        ))}
+                    </RadioGroup>
+                </View>
+            </Modalize>
+        </>
     )
 }
 
 // =====================================================================
-// SUB-COMPONENTE: DIALOG DE CREACIÓN
+// 3. MODAL DE CREACIÓN
 // =====================================================================
-const CreateUserDialog = ({ onUserCreated, isLoading }) => {
+const CreateUserModalContent = ({ modalRef, onUserCreated, isLoading }) => {
     const { colors } = useTheme()
-    const [isOpen, setIsOpen] = useState(false)
+    const roleModalRef = useRef(null)
     const [isSaving, setIsSaving] = useState(false)
-    const [newUser, setNewUser] = useState({ name: '', email: '', position: '', phone: '', roleId: 3 })
+    const [newUser, setNewUser] = useState({ name: '', email: '', position: '', phone: '', roleId: 1 })
+
+    const onClose = () => {
+        modalRef.current?.close()
+    }
+
+    const openRoles = () => roleModalRef.current?.open()
+    const selectRole = (val) => {
+        setNewUser({ ...newUser, roleId: Number(val) })
+    }
 
     const handleCreate = async () => {
         if (!newUser.name.trim() || !newUser.email.trim() || !newUser.position.trim()) {
@@ -255,8 +426,8 @@ const CreateUserDialog = ({ onUserCreated, isLoading }) => {
             setIsSaving(true)
             await createUser(newUser)
             alert('Usuario creado correctamente')
-            setNewUser({ name: '', email: '', position: '', phone: '', roleId: 3 })
-            setIsOpen(false)
+            setNewUser({ name: '', email: '', position: '', phone: '', roleId: 1 })
+            onClose()
             if (onUserCreated) onUserCreated()
         } catch (error) {
             alert('No se pudo crear el usuario')
@@ -266,178 +437,184 @@ const CreateUserDialog = ({ onUserCreated, isLoading }) => {
     }
 
     return (
-        <View>
-            <Dialog isOpen={isOpen} onOpenChange={setIsOpen}>
-                <Dialog.Trigger asChild>
-                    <Button isIconOnly className="font-semibold shrink-0" variant="primary" isDisabled={isLoading}>
-                        <Ionicons name="add-outline" size={24} color={colors.accentForeground} />
-                    </Button>
-                </Dialog.Trigger>
+        <>
+            <Modalize
+                ref={modalRef}
+                adjustToContentHeight={true}
+                avoidKeyboardLikeIOS={true}
+                overlayStyle={OVERLAY_STYLE}
+                modalStyle={{ backgroundColor: colors.background }}
+            >
+                <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
+                    {/* 2. ScrollView: Habilita el desplazamiento interno */}
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        // Pasamos el padding del View original aquí para que scrollee con el contenido
+                        contentContainerStyle={{
+                            paddingHorizontal: '6%',
+                            paddingTop: '9%',
+                            paddingBottom: '6%',
+                        }}
+                    >
+                        <View className="flex gap-0 mb-8">
+                            <View className="flex flex-row justify-between items-center">
+                                <Text className="text-foreground text-2xl font-medium">Registrar usuario</Text>
 
-                <Dialog.Portal className="p-0 m-0">
-                    <Dialog.Overlay className="bg-black/30" />
-                    <KeyboardAvoidingView behavior="padding" className="flex-1 justify-end z-50">
-                        <Dialog.Content className="w-full mt-[28%] px-[6%] pt-[12%] rounded-t-2xl rounded-b-none">
-                            <View className="p-0 gap-4 w-full">
-                                <ScrollView showsVerticalScrollIndicator={false}>
-                                    {/* Header */}
-                                    <View className="flex gap-4 mb-10">
-                                        <Text className="text-foreground text-2xl font-medium">Nuevo usuario</Text>
-                                        <Text className="text-muted text-[14px]">Ingrese los datos del nuevo usuario</Text>
-                                    </View>
-
-                                    {/* Formulario */}
-                                    <View className="gap-4">
-                                        <TextField>
-                                            <TextField.Label className="text-foreground font-medium mb-2">Nombre *</TextField.Label>
-                                            <TextField.Input
-                                                colors={{
-                                                    blurBackground: colors.surface2,
-                                                    focusBackground: colors.surface2,
-                                                    blurBorder: colors.surface3,
-                                                    focusBorder: colors.accent,
-                                                }}
-                                                placeholder="Nombre del usuario"
-                                                value={newUser.name}
-                                                onChangeText={(text) => setNewUser((prev) => ({ ...prev, name: text }))}
-                                                cursorColor={colors.accent}
-                                                selectionHandleColor={colors.accent}
-                                                selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                            />
-                                        </TextField>
-
-                                        <TextField>
-                                            <TextField.Label className="text-foreground font-medium mb-2">Correo Electrónico *</TextField.Label>
-                                            <TextField.Input
-                                                colors={{
-                                                    blurBackground: colors.surface2,
-                                                    focusBackground: colors.surface2,
-                                                    blurBorder: colors.surface3,
-                                                    focusBorder: colors.accent,
-                                                }}
-                                                placeholder="correo@ejemplo.com"
-                                                value={newUser.email}
-                                                onChangeText={(text) => setNewUser((prev) => ({ ...prev, email: text }))}
-                                                keyboardType="email-address"
-                                                autoCapitalize="none"
-                                                cursorColor={colors.accent}
-                                                selectionHandleColor={colors.accent}
-                                                selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                            />
-                                        </TextField>
-
-                                        <TextField>
-                                            <TextField.Label className="text-foreground font-medium mb-2">Puesto *</TextField.Label>
-                                            <TextField.Input
-                                                colors={{
-                                                    blurBackground: colors.surface2,
-                                                    focusBackground: colors.surface2,
-                                                    blurBorder: colors.surface3,
-                                                    focusBorder: colors.accent,
-                                                }}
-                                                placeholder="Puesto del usuario"
-                                                value={newUser.position}
-                                                onChangeText={(text) => setNewUser((prev) => ({ ...prev, position: text }))}
-                                                cursorColor={colors.accent}
-                                                selectionHandleColor={colors.accent}
-                                                selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                            />
-                                        </TextField>
-
-                                        <View style={{ zIndex: 1000 }}>
-                                            <Text className="text-foreground font-medium mb-2">Rol *</Text>
-                                            <Select
-                                                value={{ value: String(newUser.roleId), label: getRoleLabel(newUser.roleId) }}
-                                                onValueChange={(opt) => setNewUser({ ...newUser, roleId: Number(opt.value) })}
-                                            >
-                                                <Select.Trigger>
-                                                    <View className="w-full h-14 flex-row items-center justify-between px-4 rounded-xl bg-surface-2 border border-surface-3">
-                                                        <Text className="text-foreground font-medium">{getRoleLabel(newUser.roleId)}</Text>
-                                                        <Ionicons name="chevron-down-outline" size={24} color={colors.muted} />
-                                                    </View>
-                                                </Select.Trigger>
-                                                <Select.Portal>
-                                                    <Select.Overlay className="bg-black/50" />
-                                                    <Select.Content presentation="modal" className="bg-surface-1 rounded-t-2xl">
-                                                        {ROLE_OPTIONS.map((role) => (
-                                                            <Select.Item
-                                                                key={role.value}
-                                                                value={role.value}
-                                                                label={role.label}
-                                                                className="p-4 border-b border-surface-2"
-                                                            >
-                                                                <View className="flex-row justify-between items-center w-full">
-                                                                    <Text className="text-foreground text-lg">{role.label}</Text>
-                                                                    {String(newUser.roleId) === role.value && (
-                                                                        <Ionicons name="checkmark-outline" size={24} color={colors.accent} />
-                                                                    )}
-                                                                </View>
-                                                            </Select.Item>
-                                                        ))}
-                                                    </Select.Content>
-                                                </Select.Portal>
-                                            </Select>
-                                        </View>
-
-                                        <TextField>
-                                            <TextField.Label className="text-foreground font-medium mb-2">Teléfono</TextField.Label>
-                                            <TextField.Input
-                                                colors={{
-                                                    blurBackground: colors.surface2,
-                                                    focusBackground: colors.surface2,
-                                                    blurBorder: colors.surface3,
-                                                    focusBorder: colors.accent,
-                                                }}
-                                                placeholder="Teléfono (Opcional)"
-                                                value={newUser.phone}
-                                                onChangeText={(text) => setNewUser((prev) => ({ ...prev, phone: text }))}
-                                                keyboardType="phone-pad"
-                                                cursorColor={colors.accent}
-                                                selectionHandleColor={colors.accent}
-                                                selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                            />
-                                        </TextField>
-                                    </View>
-
-                                    {/* Botones de acción */}
-                                    <View className="flex-row justify-end gap-3 pt-6 pb-[6%]">
-                                        <Dialog.Close asChild>
-                                            <Button className="flex-1 bg-surface-2" isDisabled={isSaving}>
-                                                <Button.Label className="text-foreground">Cancelar</Button.Label>
-                                            </Button>
-                                        </Dialog.Close>
-                                        <Button
-                                            className="flex-1"
-                                            variant="primary"
-                                            onPress={handleCreate}
-                                            isDisabled={isSaving || !newUser.name.trim() || !newUser.email.trim() || !newUser.position.trim()}
-                                        >
-                                            {isSaving ? (
-                                                <Spinner size="sm" color={colors.accentForeground} />
-                                            ) : (
-                                                <>
-                                                    <Ionicons name="add-outline" size={24} color={colors.accentForeground} />
-                                                    <Button.Label>Crear</Button.Label>
-                                                </>
-                                            )}
-                                        </Button>
-                                    </View>
-                                </ScrollView>
+                                <Button isIconOnly className="bg-transparent shrink-0" onPress={onClose}>
+                                    <Ionicons name="close-outline" size={24} color={colors.foreground} />
+                                </Button>
                             </View>
-                        </Dialog.Content>
-                    </KeyboardAvoidingView>
-                </Dialog.Portal>
-            </Dialog>
-        </View>
+                            <Text className="text-muted-foreground">Ingrese los datos del nuevo usuario</Text>
+                        </View>
+
+                        <View className="gap-6">
+                            <TextField isRequired>
+                                <TextField.Label className="text-foreground font-medium mb-2">Nombre</TextField.Label>
+                                <TextField.Input
+                                    colors={{
+                                        blurBackground: colors.accentSoft,
+                                        focusBackground: colors.surface2,
+                                        blurBorder: colors.accentSoft,
+                                        focusBorder: colors.surface2,
+                                    }}
+                                    placeholder="Nombre del usuario"
+                                    value={newUser.name}
+                                    onChangeText={(text) => setNewUser((prev) => ({ ...prev, name: text }))}
+                                    cursorColor={colors.accent}
+                                    selectionHandleColor={colors.accent}
+                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                />
+                            </TextField>
+                            <TextField isRequired>
+                                <TextField.Label className="text-foreground font-medium mb-2">Correo electrónico</TextField.Label>
+                                <TextField.Input
+                                    colors={{
+                                        blurBackground: colors.accentSoft,
+                                        focusBackground: colors.surface2,
+                                        blurBorder: colors.accentSoft,
+                                        focusBorder: colors.surface2,
+                                    }}
+                                    placeholder="correo@ejemplo.com"
+                                    value={newUser.email}
+                                    onChangeText={(text) => setNewUser((prev) => ({ ...prev, email: text }))}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    cursorColor={colors.accent}
+                                    selectionHandleColor={colors.accent}
+                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                />
+                            </TextField>
+                            <TextField isRequired>
+                                <TextField.Label className="text-foreground font-medium mb-2">Puesto</TextField.Label>
+                                <TextField.Input
+                                    colors={{
+                                        blurBackground: colors.accentSoft,
+                                        focusBackground: colors.surface2,
+                                        blurBorder: colors.accentSoft,
+                                        focusBorder: colors.surface2,
+                                    }}
+                                    placeholder="Puesto del usuario"
+                                    value={newUser.position}
+                                    onChangeText={(text) => setNewUser((prev) => ({ ...prev, position: text }))}
+                                    cursorColor={colors.accent}
+                                    selectionHandleColor={colors.accent}
+                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                />
+                            </TextField>
+                            <View style={{ zIndex: 1000 }}>
+                                <Text className="text-foreground font-medium mb-2">
+                                    Rol <Text className="text-danger">*</Text>
+                                </Text>
+                                <TouchableOpacity onPress={openRoles}>
+                                    <View className="w-full h-12 flex-row items-center justify-between px-4 rounded-lg bg-accent-soft">
+                                        <Text className="text-foreground font-medium">{getRoleLabel(newUser.roleId)}</Text>
+                                        <Ionicons name="chevron-down-outline" size={24} color={colors.accent} />
+                                    </View>
+                                </TouchableOpacity>
+                            </View>
+                            <TextField>
+                                <TextField.Label className="text-foreground font-medium mb-2">Teléfono</TextField.Label>
+                                <TextField.Input
+                                    colors={{
+                                        blurBackground: colors.accentSoft,
+                                        focusBackground: colors.surface2,
+                                        blurBorder: colors.accentSoft,
+                                        focusBorder: colors.surface2,
+                                    }}
+                                    placeholder="Teléfono (Opcional)"
+                                    value={newUser.phone}
+                                    onChangeText={(text) => setNewUser((prev) => ({ ...prev, phone: text }))}
+                                    keyboardType="phone-pad"
+                                    cursorColor={colors.accent}
+                                    selectionHandleColor={colors.accent}
+                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                />
+                            </TextField>
+                        </View>
+
+                        <View className="flex-row justify-end gap-3 pt-8">
+                            <Button
+                                className="flex-1"
+                                variant="primary"
+                                onPress={handleCreate}
+                                isDisabled={isLoading || isSaving || !newUser.name.trim() || !newUser.email.trim() || !newUser.position.trim()}
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <Spinner color={colors.accentForeground} size="md" />
+                                        <Button.Label>Registrando...</Button.Label>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Ionicons name="add-outline" size={24} color={colors.accentForeground} />
+                                        <Button.Label>Registrar</Button.Label>
+                                    </>
+                                )}
+                            </Button>
+                        </View>
+                    </ScrollView>
+                </View>
+            </Modalize>
+
+            <Modalize ref={roleModalRef} adjustToContentHeight={true} overlayStyle={OVERLAY_STYLE} modalStyle={{ backgroundColor: colors.background }}>
+                <View className="px-[6%] pt-[9%] pb-[6%]" style={{ maxHeight: MODAL_MAX_HEIGHT }}>
+                    <View className="flex gap-0 mb-8">
+                        <View className="flex flex-row justify-between items-center">
+                            <Text className="text-foreground text-2xl font-medium">Seleccionar rol</Text>
+                            <Button isIconOnly className="bg-transparent shrink-0" onPress={onClose}>
+                                <Ionicons name="close-outline" size={24} color={colors.foreground} />
+                            </Button>
+                        </View>
+                        <Text className="text-muted-foreground">Seleccione el rol que se asignará al nuevo usuario</Text>
+                    </View>
+
+                    <RadioGroup value={String(newUser.roleId)} onValueChange={(val) => selectRole(val)}>
+                        {ROLE_OPTIONS.map((role) => (
+                            <RadioGroup.Item
+                                key={role.value}
+                                value={role.value}
+                                className="flex-row justify-between items-center h-14 pr-4 border-b border-surface-2"
+                            >
+                                <RadioGroup.Title className="text-foreground">{role.label}</RadioGroup.Title>
+                                <RadioGroup.Indicator />
+                            </RadioGroup.Item>
+                        ))}
+                    </RadioGroup>
+                </View>
+            </Modalize>
+        </>
     )
 }
+
 // =====================================================================
-// COMPONENTE: STATUS CHANGE DIALOG (CON SWITCH INTEGRADO)
+// 4. MODAL DE STATUS
 // =====================================================================
-const StatusChangeDialog = ({ user, onStatusChanged }) => {
+const StatusChangeModalContent = ({ modalRef, user, onStatusChanged }) => {
     const { colors } = useTheme()
-    const [isOpen, setIsOpen] = useState(false)
     const [isChangingStatus, setIsChangingStatus] = useState(false)
+
+    const onClose = () => modalRef.current?.close()
 
     const handleChangeStatus = async () => {
         try {
@@ -445,7 +622,7 @@ const StatusChangeDialog = ({ user, onStatusChanged }) => {
             const response = await changeStatus(user.email)
             if (response.type === 'SUCCESS') {
                 if (onStatusChanged) onStatusChanged()
-                setIsOpen(false) // Cerramos el dialog manualmente tras éxito
+                onClose()
             } else {
                 alert('No se pudo cambiar el estado')
             }
@@ -457,81 +634,70 @@ const StatusChangeDialog = ({ user, onStatusChanged }) => {
     }
 
     return (
-        <View>
-            <Dialog isOpen={isOpen} onOpenChange={setIsOpen}>
-                {/* TRIGGER: El Switch envuelto para capturar el press */}
-                <Dialog.Trigger asChild>
-                    <TouchableOpacity>
-                        <View pointerEvents="none">
-                            <Switch
-                                isSelected={user.status === 'activo'}
-                                colors={{
-                                    defaultBackground: colors.surface3,
-                                    selectedBackground: colors.accent,
-                                    defaultBorder: 'transparent',
-                                    selectedBorder: 'transparent',
-                                }}
-                            >
-                                <Switch.Thumb
-                                    colors={{
-                                        defaultBackground: colors.muted,
-                                        selectedBackground: colors.accentForeground,
-                                    }}
-                                />
-                            </Switch>
-                        </View>
-                    </TouchableOpacity>
-                </Dialog.Trigger>
-
-                <Dialog.Portal className="p-0 m-0">
-                    <Dialog.Overlay className="bg-black/30" />
-                    <KeyboardAvoidingView behavior="padding" className="flex-1 justify-end z-50">
-                        <Dialog.Content className="w-full mt-[28%] px-[6%] pt-[12%] rounded-t-2xl rounded-b-none">
-                            <View className="p-0 gap-4 w-full">
-                                <ScrollView showsVerticalScrollIndicator={false}>
-                                    <View className="gap-4">
-                                        <Text className="text-foreground text-xl font-bold text-center">
-                                            {user.status === 'activo' ? '¿Inhabilitar usuario?' : '¿Habilitar usuario?'}
-                                        </Text>
-                                        <Text className="text-muted text-center text-sm">
-                                            {user.status === 'activo'
-                                                ? `¿Está seguro que desea inhabilitar a ${user.name}? El usuario no podrá acceder al sistema.`
-                                                : `¿Está seguro que desea habilitar a ${user.name}? El usuario podrá acceder al sistema nuevamente.`}
-                                        </Text>
-                                    </View>
-
-                                    <View className="flex-row gap-3 mt-6 pb-[6%]">
-                                        {/* BOTÓN CANCELAR: Envuelto en Dialog.Close para que funcione */}
-                                        <Dialog.Close asChild>
-                                            <Button className="flex-1 bg-surface-2" isDisabled={isChangingStatus}>
-                                                <Button.Label className="text-foreground">Cancelar</Button.Label>
-                                            </Button>
-                                        </Dialog.Close>
-
-                                        <Button className="flex-1" variant="primary" onPress={handleChangeStatus} isDisabled={isChangingStatus}>
-                                            {isChangingStatus ? (
-                                                <Spinner size="sm" color={colors.accentForeground} />
-                                            ) : (
-                                                <>
-                                                    <Ionicons
-                                                        name={user.status === 'activo' ? 'close-outline' : 'checkmark-outline'}
-                                                        size={24}
-                                                        color={colors.accentForeground}
-                                                    />
-                                                    <Button.Label>{user.status === 'activo' ? 'Inhabilitar' : 'Habilitar'}</Button.Label>
-                                                </>
-                                            )}
-                                        </Button>
-                                    </View>
-                                </ScrollView>
+        <Modalize
+            ref={modalRef}
+            adjustToContentHeight={true}
+            avoidKeyboardLikeIOS={true}
+            overlayStyle={OVERLAY_STYLE}
+            modalStyle={{ backgroundColor: colors.background }}
+        >
+            <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={{
+                        paddingHorizontal: '6%',
+                        paddingTop: '9%',
+                        paddingBottom: '6%',
+                    }}
+                >
+                    {user ? (
+                        <View>
+                            <View className="flex gap-0 mb-8">
+                                <View className="flex flex-row justify-between items-center">
+                                    <Text className="text-foreground text-2xl font-medium">
+                                        {user.status === 'activo' ? '¿Inhabilitar usuario?' : '¿Habilitar usuario?'}
+                                    </Text>
+                                    <Button isIconOnly className="bg-transparent shrink-0" onPress={onClose}>
+                                        <Ionicons name="close-outline" size={24} color={colors.foreground} />
+                                    </Button>
+                                </View>
+                                <Text className="text-muted-foreground">
+                                    {user.status === 'activo'
+                                        ? `¿Está seguro que desea inhabilitar a ${user.name}? El usuario no podrá acceder al sistema.`
+                                        : `¿Está seguro que desea habilitar a ${user.name}? El usuario podrá acceder al sistema nuevamente.`}
+                                </Text>
                             </View>
-                        </Dialog.Content>
-                    </KeyboardAvoidingView>
-                </Dialog.Portal>
-            </Dialog>
-        </View>
+
+                            <View className="flex-row justify-end gap-3">
+                                <Button className="flex-1" variant="primary" onPress={handleChangeStatus} isDisabled={isChangingStatus}>
+                                    {isChangingStatus ? (
+                                        <>
+                                            <Spinner color={colors.accentForeground} size="md" />
+                                            <Button.Label>{user.status === 'activo' ? 'Inhabilitando' : 'Habilitando'}...</Button.Label>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Ionicons
+                                                name={user.status === 'activo' ? 'remove-outline' : 'checkmark-outline'}
+                                                size={24}
+                                                color={colors.accentForeground}
+                                            />
+                                            <Button.Label>{user.status === 'activo' ? 'Inhabilitar' : 'Habilitar'}</Button.Label>
+                                        </>
+                                    )}
+                                </Button>
+                            </View>
+                        </View>
+                    ) : (
+                        <View className="h-20" />
+                    )}
+                </ScrollView>
+            </View>
+        </Modalize>
     )
 }
+
 // =====================================================================
 // PANTALLA PRINCIPAL
 // =====================================================================
@@ -540,44 +706,37 @@ const UsersScreen = () => {
     const [users, setUsers] = useState([])
     const { colors } = useTheme()
 
-    // Estados de lógica
+    // Estados de filtros
     const [searchValue, setSearchValue] = useState('')
     const [sortOption, setSortOption] = useState({ value: 'name', label: 'Nombre' })
     const [statusFilter, setStatusFilter] = useState('all')
     const [rowsPerPage, setRowsPerPage] = useState('10')
     const [page, setPage] = useState(1)
 
-    const dummyUnifiedValue = { value: 'unified', label: 'Filtros' }
-    const unifiedOptions = [
-        { type: 'header', label: 'ORDENAR POR' },
-        { value: 'sort-name', label: 'Nombre', raw: 'name', group: 'sort' },
-        { value: 'sort-email', label: 'Correo', raw: 'email', group: 'sort' },
-        { value: 'sort-role', label: 'Rol', raw: 'role', group: 'sort' },
-        { type: 'header', label: 'FILTRAR POR ESTATUS' },
-        { value: 'status-all', label: 'Todos los estatus', raw: 'all', group: 'status' },
-        { value: 'status-activo', label: 'Activo', raw: 'activo', group: 'status' },
-        { value: 'status-inactivo', label: 'Inactivo', raw: 'inactivo', group: 'status' },
-        { type: 'header', label: 'FILAS POR PÁGINA' },
-        { value: 'rows-1', label: '1 fila', raw: '1', group: 'rows' },
-        { value: 'rows-5', label: '5 filas', raw: '5', group: 'rows' },
-        { value: 'rows-10', label: '10 filas', raw: '10', group: 'rows' },
-        { value: 'rows-20', label: '20 filas', raw: '20', group: 'rows' },
-        { value: 'rows-50', label: '50 filas', raw: '50', group: 'rows' },
-    ]
+    // NUEVO ESTADO: Controlamos el acordeón para evitar que se cierre al re-renderizar
+    const [expandedKeys, setExpandedKeys] = useState(undefined)
 
-    const handleUnifiedChange = (selectedItem) => {
-        const val = selectedItem?.value || selectedItem
-        if (!val || typeof val !== 'string' || val === 'unified') return
+    // Referencias y estados para Modales Globales
+    const filterModalRef = useRef(null)
+    const createModalRef = useRef(null)
+    const editModalRef = useRef(null)
+    const statusModalRef = useRef(null)
 
-        const opt = unifiedOptions.find((o) => o.value === val)
-        if (!opt || opt.type === 'header') return
+    const [userToEdit, setUserToEdit] = useState(null)
+    const [userToChangeStatus, setUserToChangeStatus] = useState(null)
 
-        if (opt.group === 'sort') setSortOption({ value: opt.raw, label: opt.label })
-        else if (opt.group === 'status') setStatusFilter(opt.raw)
-        else if (opt.group === 'rows') {
-            setRowsPerPage(opt.raw)
-            setPage(1)
-        }
+    // Handlers para abrir modales
+    const openFilterModal = () => filterModalRef.current?.open()
+    const openCreateModal = () => createModalRef.current?.open()
+
+    const openEditModal = (user) => {
+        setUserToEdit(user)
+        editModalRef.current?.open()
+    }
+
+    const openStatusModal = (user) => {
+        setUserToChangeStatus(user)
+        statusModalRef.current?.open()
     }
 
     const fetchData = async () => {
@@ -609,27 +768,22 @@ const UsersScreen = () => {
 
     const filteredAndSortedItems = useMemo(() => {
         let result = [...users]
-
         if (searchValue) {
             const lowerSearch = searchValue.toLowerCase()
             result = result.filter((user) => user.name.toLowerCase().includes(lowerSearch) || user.email.toLowerCase().includes(lowerSearch))
         }
-
         if (statusFilter && statusFilter !== 'all') {
             result = result.filter((user) => user.status === statusFilter)
         }
-
         if (sortOption?.value) {
             const key = sortOption.value
             const keyString = (user) => (user[key] || '').toString().toLowerCase()
             result.sort((a, b) => keyString(a).localeCompare(keyString(b)))
         }
-
         return result
     }, [users, searchValue, statusFilter, sortOption])
 
     const pages = Math.ceil(filteredAndSortedItems.length / Number(rowsPerPage))
-
     const paginatedItems = useMemo(() => {
         const start = (page - 1) * Number(rowsPerPage)
         return filteredAndSortedItems.slice(start, start + Number(rowsPerPage))
@@ -638,73 +792,47 @@ const UsersScreen = () => {
     return (
         <View style={{ flex: 1 }}>
             <ScrollableLayout onRefresh={fetchData}>
-                <View className="px-[6%] py-[0%] min-h-full pb-10">
+                <View className="p-[6%] min-h-full">
                     <View className="flex flex-col w-full justify-between shrink-0 gap-4 items-end">
                         <View className="w-full flex flex-row justify-between items-end">
                             <Text className="font-bold text-[32px] text-foreground">Usuarios</Text>
                             <View className="flex flex-row gap-2 items-center">
-                                <Select value={dummyUnifiedValue} onValueChange={handleUnifiedChange}>
-                                    <Select.Trigger asChild>
-                                        <Button isIconOnly className="bg-transparent">
-                                            <Ionicons name="filter-outline" size={24} color={colors.foreground} />
-                                        </Button>
-                                    </Select.Trigger>
-                                    <Select.Portal>
-                                        <Select.Overlay className="bg-black/20" />
-                                        <Select.Content presentation="bottom-sheet">
-                                            <Select.Item key="unified" value="unified" label="Filtros" className="hidden h-0 p-0" />
-                                            {unifiedOptions.map((opt, index) => {
-                                                if (opt.type === 'header') {
-                                                    return (
-                                                        <View key={`header-${index}`} className="pt-8 px-2">
-                                                            <Text className="text-[12px] font-bold text-neutral-500 tracking-widest uppercase">
-                                                                {opt.label}
-                                                            </Text>
-                                                        </View>
-                                                    )
-                                                }
-                                                let isSelected = false
-                                                if (opt.group === 'sort') isSelected = sortOption.value === opt.raw
-                                                else if (opt.group === 'status') isSelected = statusFilter === opt.raw
-                                                else if (opt.group === 'rows') isSelected = rowsPerPage === opt.raw
-
-                                                return (
-                                                    <Select.Item key={opt.value} value={opt.value} label={opt.label}>
-                                                        <View className="flex-row items-center justify-between flex-1">
-                                                            <Text className={`text-base text-foreground ${isSelected ? 'font-bold' : ''}`}>{opt.label}</Text>
-                                                            {isSelected && <Ionicons name="checkmark-outline" size={24} color={colors.accent} />}
-                                                        </View>
-                                                    </Select.Item>
-                                                )
-                                            })}
-                                        </Select.Content>
-                                    </Select.Portal>
-                                </Select>
-                                <CreateUserDialog onUserCreated={fetchData} isLoading={isLoading} />
+                                {/* Botón Filtros */}
+                                <Button isIconOnly className="bg-transparent shrink-0" isDisabled={isLoading} onPress={openFilterModal}>
+                                    <Ionicons name="filter-outline" size={24} color={colors.foreground} />
+                                </Button>
+                                {/* Botón Crear */}
+                                <Button isIconOnly className="font-semibold shrink-0" variant="primary" isDisabled={isLoading} onPress={openCreateModal}>
+                                    <Ionicons name="add-outline" size={24} color={colors.accentForeground} />
+                                </Button>
                             </View>
                         </View>
                     </View>
 
-                    <View className="mb-4 mt-4 flex-row justify-between items-start">
-                        <Text className="text-[14px] font-semibold text-muted">{filteredAndSortedItems.length} Resultados</Text>
+                    <View className="mb-4 mt-4 flex-row justify-between items-center">
+                        <Text className="text-[14px] text-muted-foreground">{filteredAndSortedItems.length} Resultados</Text>
                         <View className="flex flex-row gap-2">
                             <View className="flex-row items-center bg-surface-1 px-2 py-2 rounded-full gap-1">
                                 <Ionicons name="swap-vertical-outline" size={12} color={colors.foreground} />
                                 <Text className="text-xs font-semibold text-foreground">{sortOption.label}</Text>
                             </View>
-                            {statusFilter !== 'all' && (
-                                <View className="flex-row items-center bg-surface-1 px-2 py-2 rounded-lg gap-2">
-                                    <View className="w-2 h-2 rounded-full bg-accent" />
-                                    <Text className="text-xs font-semibold text-foreground capitalize">{statusFilter}</Text>
-                                </View>
-                            )}
                             <View className="flex-row items-center bg-surface-1 px-2 py-2 rounded-lg">
                                 <Text className="text-xs font-semibold text-foreground">{rowsPerPage} / Pág</Text>
                             </View>
+                            {statusFilter !== 'all' && (
+                                <View className="flex-row items-center bg-surface-1 px-2 py-2 rounded-lg gap-2">
+                                    <Ionicons
+                                        name={statusFilter === 'activo' ? 'person' : 'person-outline'}
+                                        size={12}
+                                        color={statusFilter === 'activo' ? colors.accent : colors.mutedForeground}
+                                    />
+                                    <Text className="text-xs font-semibold text-foreground capitalize">{statusFilter}</Text>
+                                </View>
+                            )}
                         </View>
                     </View>
 
-                    <TextField>
+                    <TextField className="mb-4">
                         <TextField.Input
                             colors={{
                                 blurBackground: colors.accentSoft,
@@ -712,7 +840,6 @@ const UsersScreen = () => {
                                 blurBorder: colors.accentSoft,
                                 focusBorder: colors.surface2,
                             }}
-                            className="mb-4"
                             placeholder="Buscar..."
                             autoCapitalize="none"
                             cursorColor={colors.accent}
@@ -736,112 +863,176 @@ const UsersScreen = () => {
                             <View className="p-0">
                                 {paginatedItems.length > 0 ? (
                                     <>
-                                        <Accordion selectionMode="single" className="border-0" isDividerVisible={false}>
+                                        {/* AÑADIDO: Props value y onValueChange para controlar el estado del acordeón */}
+                                        <Accordion
+                                            selectionMode="single"
+                                            className="border-0"
+                                            isDividerVisible={false}
+                                            value={expandedKeys}
+                                            onValueChange={setExpandedKeys}
+                                        >
                                             {paginatedItems.map((item) => (
                                                 <Accordion.Item key={item.id} value={item.id} className="bg-accent-soft mb-2 rounded-lg overflow-hidden">
-                                                    <Accordion.Trigger className="w-full bg-accent-soft px-4 py-4">
-                                                        <View className="flex-row items-center gap-2 w-full">
-                                                            <View className="flex-1 gap-2">
+                                                    <Accordion.Trigger className="w-full bg-accent-soft pl-4 pr-0 py-4">
+                                                        <View className="flex-row items-center justify-between w-full">
+                                                            <View className="flex-1 gap-1 pr-2">
                                                                 <View className="flex-row items-center gap-2">
-                                                                    <View
-                                                                        className={`w-2 h-2 rounded-full ${item.status === 'activo' ? 'bg-accent' : 'bg-surface-3'}`}
+                                                                    <Ionicons
+                                                                        name={item.status === 'activo' ? 'person' : 'person-outline'}
+                                                                        size={14}
+                                                                        color={item.status === 'activo' ? colors.accent : colors.mutedForeground}
                                                                     />
                                                                     <Text className="text-foreground flex-shrink text-lg font-semibold" numberOfLines={1}>
                                                                         {item.name}
                                                                     </Text>
                                                                 </View>
-                                                                <Text className="text-foreground" numberOfLines={1}>
+                                                                <Text className="text-muted-foreground text-[14px]" numberOfLines={1}>
                                                                     {item.email}
                                                                 </Text>
                                                             </View>
-                                                            <Accordion.Indicator />
+
+                                                            <View className="flex flex-row items-center gap-2">
+                                                                <TouchableOpacity
+                                                                    onPress={() => openEditModal(item)}
+                                                                    className="h-14 w-14 flex items-center justify-center"
+                                                                    activeOpacity={0.7}
+                                                                >
+                                                                    <Ionicons name="create-outline" size={24} color={colors.foreground} />
+                                                                </TouchableOpacity>
+
+                                                                <Accordion.Indicator
+                                                                    className="h-14 w-14 flex items-center justify-center"
+                                                                    iconProps={{
+                                                                        color: colors.accent,
+                                                                        size: 24,
+                                                                    }}
+                                                                />
+                                                            </View>
                                                         </View>
                                                     </Accordion.Trigger>
+
                                                     <Accordion.Content className="bg-accent-soft px-4 pb-4">
-                                                        <View className="h-px bg-surface-3 mt-2 mb-4" />
-                                                        <View className="gap-4">
-                                                            <View className="gap-2">
-                                                                <View className="flex-row">
-                                                                    <Text className="text-[14px] text-muted font-medium w-24">Actualizado</Text>
+                                                        <View className="h-px bg-surface-3 mt-0 mb-4" />
+
+                                                        <View className="gap-3">
+                                                            <View className="gap-3">
+                                                                <View className="flex-row items-start justify-between">
+                                                                    <Text className="text-[14px] text-muted-foreground w-28 pt-0.5">Actualizado</Text>
                                                                     <Text className="text-[14px] text-foreground text-right flex-1" numberOfLines={2}>
                                                                         {formatDateLiteral(item.updatedAt, true)}
                                                                     </Text>
                                                                 </View>
-                                                                <View className="flex-row">
-                                                                    <Text className="text-[14px] text-muted font-medium w-24">Puesto</Text>
-                                                                    <Text className="text-[14px] text-foreground text-right flex-1" numberOfLines={2}>
+
+                                                                <View className="flex-row items-start justify-between">
+                                                                    <Text className="text-[14px] text-muted-foreground w-28 pt-0.5">Puesto</Text>
+                                                                    <Text
+                                                                        className="text-[14px] text-foreground text-right flex-1 font-medium"
+                                                                        numberOfLines={2}
+                                                                    >
                                                                         {item.position}
                                                                     </Text>
                                                                 </View>
-                                                                <View className="flex-row">
-                                                                    <Text className="text-[14px] text-muted font-medium w-24">Rol</Text>
+
+                                                                <View className="flex-row items-start justify-between">
+                                                                    <Text className="text-[14px] text-muted-foreground w-28 pt-0.5">Rol</Text>
                                                                     <Text className="text-[14px] text-foreground text-right flex-1" numberOfLines={2}>
                                                                         {item.role}
                                                                     </Text>
                                                                 </View>
-                                                                <View className="flex-row items-center">
-                                                                    <Text className="text-[14px] text-muted font-medium w-24">Teléfono</Text>
-                                                                    <Text className="text-[14px] text-foreground text-right flex-1" numberOfLines={2}>
+
+                                                                <View className="flex-row items-start justify-between">
+                                                                    <Text className="text-[14px] text-muted-foreground w-28 pt-0.5">Teléfono</Text>
+                                                                    <Text
+                                                                        className={`text-[14px] text-right flex-1 ${item.phone ? 'text-foreground' : 'text-muted-foreground italic'}`}
+                                                                        numberOfLines={2}
+                                                                    >
                                                                         {item.phone || 'No especificado'}
                                                                     </Text>
                                                                 </View>
-                                                                <View className="flex-row items-center justify-between">
-                                                                    {/* Ajuste de altura para alinear */}
-                                                                    <Text className="text-[14px] text-muted font-medium w-24">Estado</Text>
-                                                                    {/* AQUÍ VA EL NUEVO COMPONENTE INTEGRADO */}
-                                                                    <StatusChangeDialog user={item} onStatusChanged={fetchData} />
-                                                                </View>
                                                             </View>
-                                                            <View className="flex-row gap-3 mt-2">
-                                                                <EditUserDialog user={item} onUserUpdated={fetchData} />
+
+                                                            <View className="flex-row items-center justify-between">
+                                                                <Text className="text-[14px] text-muted-foreground">Estado</Text>
+                                                                <TouchableOpacity onPress={() => openStatusModal(item)} activeOpacity={0.8}>
+                                                                    <View pointerEvents="none">
+                                                                        <Switch
+                                                                            isSelected={item.status === 'activo'}
+                                                                            colors={{
+                                                                                defaultBackground: colors.surface3,
+                                                                                selectedBackground: colors.accent,
+                                                                                defaultBorder: 'transparent',
+                                                                                selectedBorder: 'transparent',
+                                                                            }}
+                                                                        >
+                                                                            <Switch.Thumb
+                                                                                colors={{
+                                                                                    defaultBackground: colors.background,
+                                                                                    selectedBackground: colors.accentForeground,
+                                                                                }}
+                                                                            />
+                                                                        </Switch>
+                                                                    </View>
+                                                                </TouchableOpacity>
                                                             </View>
                                                         </View>
                                                     </Accordion.Content>
                                                 </Accordion.Item>
                                             ))}
                                         </Accordion>
-                                        <View className="items-center mt-8 mb-4">
-                                            <View className="flex-row items-center bg-foreground/90 px-2 h-14 py-1.5 rounded-lg shadow-lg gap-4">
+                                        <View className="items-end mt-2">
+                                            <View className="flex-row items-center justify-between rounded-lg">
                                                 <Button
                                                     isIconOnly
-                                                    size="sm"
-                                                    variant="light"
-                                                    className="w-8 h-8 rounded-full bg-transparent"
+                                                    className="bg-transparent"
                                                     isDisabled={page === 1}
                                                     onPress={() => setPage((p) => Math.max(1, p - 1))}
                                                 >
-                                                    <Ionicons name="chevron-back-outline" size={24} color={page === 1 ? colors.muted : colors.background} />
+                                                    <Ionicons name="chevron-back-outline" size={24} color={page === 1 ? colors.muted : colors.accent} />
+                                                    <Text className="text-foreground">{page}</Text>
                                                 </Button>
-                                                <Text className="text-background font-bold text-sm px-2">
-                                                    {page} <Text className="text-base ">/ {pages || 1}</Text>
-                                                </Text>
                                                 <Button
                                                     isIconOnly
-                                                    size="sm"
-                                                    variant="light"
-                                                    className="w-8 h-8 rounded-full bg-transparent"
+                                                    className="bg-transparent"
                                                     isDisabled={page === pages || pages === 0}
                                                     onPress={() => setPage((p) => Math.min(pages, p + 1))}
                                                 >
+                                                    <Text className="text-muted-foreground">/ {pages || 1}</Text>
+
                                                     <Ionicons
                                                         name="chevron-forward-outline"
                                                         size={24}
-                                                        color={page === pages || pages === 0 ? colors.muted : colors.background}
+                                                        color={page === pages || pages === 0 ? colors.muted : colors.accent}
                                                     />
                                                 </Button>
                                             </View>
                                         </View>
                                     </>
                                 ) : (
-                                    <Text className="text-center mt-4 text-neutral-500">No se encontraron usuarios.</Text>
+                                    <Text className="text-center mt-4 text-muted-foreground">No se encontraron usuarios.</Text>
                                 )}
                             </View>
                         </ScrollShadow>
                     )}
                 </View>
             </ScrollableLayout>
+
+            <FiltersModalContent
+                modalRef={filterModalRef}
+                sortOption={sortOption}
+                setSortOption={setSortOption}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
+                rowsPerPage={rowsPerPage}
+                setRowsPerPage={setRowsPerPage}
+                setPage={setPage}
+            />
+
+            <CreateUserModalContent modalRef={createModalRef} onUserCreated={fetchData} isLoading={isLoading} />
+
+            <EditUserModalContent modalRef={editModalRef} user={userToEdit} onUserUpdated={fetchData} />
+
+            <StatusChangeModalContent modalRef={statusModalRef} user={userToChangeStatus} onStatusChanged={fetchData} />
         </View>
     )
 }
-
 export default UsersScreen

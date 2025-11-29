@@ -12,6 +12,7 @@ import {
     PlusJakartaSans_700Bold,
 } from '@expo-google-fonts/plus-jakarta-sans'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { View } from 'react-native'
 
 export default function App() {
     const { colors } = useTheme()
@@ -24,7 +25,11 @@ export default function App() {
     })
 
     if (!fontsLoaded) {
-        return <Spinner color={colors.foreground} size="md" />
+        return (
+            <View className="flex-1 justify-center items-center">
+                <Spinner color={colors.foreground} size="md" />
+            </View>
+        )
     }
 
     return (
@@ -35,47 +40,40 @@ export default function App() {
                         colorScheme: 'system',
                         theme: {
                             // ---------
-                            // LIGHT MODE - Escala de grises refinada
+                            // LIGHT MODE - Pure White Base
                             // ---------
                             light: {
                                 colors: {
-                                    // Base
-                                    background: '#f5f5f5', // Gris muy claro, suave
-                                    foreground: '#0a0a0a', // Negro intenso pero no puro
-                                    panel: '#eeeeee', // Panel ligeramente más oscuro que background
+                                    // Base (Blanco Puro)
+                                    background: '#FFFFFF',
+                                    foreground: '#000000', // Negro Puro
+                                    panel: '#FFFFFF',
 
-                                    // Muted (elementos secundarios)
-                                    muted: '#9e9e9e', // Gris medio para íconos deshabilitados
-                                    mutedForeground: '#757575', // Gris oscuro para texto secundario
+                                    // Muted
+                                    muted: '#A3A3A3',
+                                    mutedForeground: '#525252',
 
-                                    // Surface (sistema de capas)
-                                    surface: '#f5f5f5',
-                                    surfaceForeground: '#0a0a0a',
-                                    default: '#f5f5f5',
-                                    defaultForeground: '#0a0a0a',
+                                    // Surface
+                                    surface: '#FFFFFF',
+                                    surfaceForeground: '#000000',
+                                    default: '#FFFFFF',
+                                    defaultForeground: '#000000',
 
-                                    // Superficies elevadas (de más clara a más oscura)
-                                    surface1: '#eeeeee', // Primer nivel de elevación
-                                    surface2: '#e0e0e0', // Segundo nivel
-                                    surface3: '#d4d4d4', // Tercer nivel
+                                    // Superficies elevadas (Recorrido de valores)
+                                    // El antiguo background (#f5f5f5) pasa a ser surface1
+                                    surface1: '#F5F5F5',
+                                    surface2: '#EEEEEE',
+                                    surface3: '#E0E0E0',
 
                                     // Bordes y divisores
-                                    border: '#d4d4d4', // Bordes sutiles
-                                    divider: '#e0e0e0', // Divisores muy sutiles
+                                    border: '#E5E5E5',
+                                    divider: '#F5F5F5',
 
-                                    // Brand colors - Accent en escala de grises
-                                    accent: '#2a2a2a', // Gris oscuro para accent
-                                    accentForeground: '#ffffff',
-                                    accentSoft: '#e8e8e8', // Background suave para accent
-                                    accentSoftForeground: '#2a2a2a',
-
-                                    // Estados (versión monocromática)
-                                    //success: '#4a4a4a',
-                                    //successForeground: '#ffffff',
-                                    //warning: '#6a6a6a',
-                                    //warningForeground: '#ffffff',
-                                    //danger: '#1a1a1a',
-                                    //dangerForeground: '#ffffff',
+                                    // Brand colors - Accent Monocromático de alto contraste
+                                    accent: '#171717',
+                                    accentForeground: '#FFFFFF',
+                                    accentSoft: '#F5F5F5',
+                                    accentSoftForeground: '#171717',
                                 },
                                 borderRadius: {
                                     DEFAULT: '12px',
@@ -88,47 +86,40 @@ export default function App() {
                             },
 
                             // ---------
-                            // DARK MODE - Escala de grises refinada
+                            // DARK MODE - Pure Black Base
                             // ---------
                             dark: {
                                 colors: {
-                                    // Base
-                                    background: '#0f0f0f', // Negro profundo pero no puro
-                                    foreground: '#f5f5f5', // Blanco suave, no puro
-                                    panel: '#1a1a1a', // Panel ligeramente más claro
+                                    // Base (Negro Puro)
+                                    background: '#000000',
+                                    foreground: '#FFFFFF', // Blanco Puro
+                                    panel: '#000000',
 
-                                    // Muted (elementos secundarios)
-                                    muted: '#6a6a6a', // Gris medio para íconos deshabilitados
-                                    mutedForeground: '#8a8a8a', // Gris claro para texto secundario
+                                    // Muted
+                                    muted: '#525252',
+                                    mutedForeground: '#A3A3A3',
 
-                                    // Surface (sistema de capas)
-                                    surface: '#0f0f0f',
-                                    surfaceForeground: '#f5f5f5',
-                                    default: '#0f0f0f',
-                                    defaultForeground: '#f5f5f5',
+                                    // Surface
+                                    surface: '#000000',
+                                    surfaceForeground: '#FFFFFF',
+                                    default: '#000000',
+                                    defaultForeground: '#FFFFFF',
 
-                                    // Superficies elevadas (de más oscura a más clara)
-                                    surface1: '#1a1a1a', // Primer nivel de elevación
-                                    surface2: '#252525', // Segundo nivel
-                                    surface3: '#303030', // Tercer nivel
+                                    // Superficies elevadas (Recorrido de valores)
+                                    // El antiguo background (#0f0f0f) pasa a ser surface1
+                                    surface1: '#0F0F0F',
+                                    surface2: '#1A1A1A',
+                                    surface3: '#262626',
 
                                     // Bordes y divisores
-                                    border: '#303030', // Bordes sutiles
-                                    divider: '#252525', // Divisores muy sutiles
+                                    border: '#262626',
+                                    divider: '#1A1A1A',
 
-                                    // Brand colors - Accent en escala de grises
-                                    accent: '#e8e8e8', // Gris claro para accent
-                                    accentForeground: '#0f0f0f',
-                                    accentSoft: '#1f1f1f', // Background suave para accent
-                                    accentSoftForeground: '#e8e8e8',
-
-                                    // Estados (versión monocromática)
-                                    //success: '#c5c5c5',
-                                    //successForeground: '#0f0f0f',
-                                    //warning: '#a5a5a5',
-                                    //warningForeground: '#0f0f0f',
-                                    //danger: '#e5e5e5',
-                                    //dangerForeground: '#0f0f0f',
+                                    // Brand colors - Accent Monocromático
+                                    accent: '#FFFFFF',
+                                    accentForeground: '#000000',
+                                    accentSoft: '#1A1A1A',
+                                    accentSoftForeground: '#FFFFFF',
                                 },
                                 borderRadius: {
                                     DEFAULT: '12px',

@@ -17,12 +17,12 @@ const AdminTabNavigator = () => {
     const insets = useSafeAreaInsets()
 
     return (
-        <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
             <Tab.Navigator
                 tabBarPosition="bottom"
                 screenOptions={({ route }) => ({
                     tabBarActiveTintColor: colors.accent,
-                    tabBarInactiveTintColor: colors.muted,
+                    tabBarInactiveTintColor: colors.mutedForeground,
 
                     // Estilo del Label (Texto)
                     tabBarLabelStyle: {
@@ -50,10 +50,8 @@ const AdminTabNavigator = () => {
 
                     // Indicador superior
                     tabBarIndicatorStyle: {
-                        backgroundColor: colors.accent,
-                        height: 4,
-                        borderRadius: 12,
-                        top: 0,
+                        backgroundColor: 'transparent',
+                        height: 0,
                     },
 
                     // Estilo del Item (Contenedor de Icono + Texto)
@@ -70,22 +68,21 @@ const AdminTabNavigator = () => {
                     tabBarIcon: ({ focused, color }) => {
                         let iconName
 
-                        // CAMBIO: Siempre usamos iconos rellenos, sin importar el estado 'focused'
                         switch (route.name) {
                             case 'Inicio':
-                                iconName = 'home'
+                                iconName = focused ? 'home' : 'home-outline'
                                 break
                             case 'Usuarios':
-                                iconName = 'people'
+                                iconName = focused ? 'people' : 'people-outline'
                                 break
                             case 'Logs':
-                                iconName = 'footsteps'
+                                iconName = focused ? 'footsteps' : 'footsteps-outline'
                                 break
                             case 'Perfil':
-                                iconName = 'person'
+                                iconName = focused ? 'person' : 'person-outline'
                                 break
                             default:
-                                iconName = 'ellipse'
+                                iconName = focused ? 'ellipse' : 'ellipse-outline'
                         }
 
                         // CAMBIO: Tamaño fijo de 24px

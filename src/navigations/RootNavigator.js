@@ -4,6 +4,7 @@ import { Spinner, useTheme } from 'heroui-native'
 import { useAuth } from '../contexts/AuthContext'
 import AppNavigator from './AppNavigator'
 import LoginScreen from '../screens/LoginScreen'
+import { View } from 'react-native'
 
 const Stack = createNativeStackNavigator()
 
@@ -12,7 +13,11 @@ const RootNavigator = () => {
     const { colors } = useTheme()
 
     if (isLoading) {
-        return <Spinner color={colors.foreground} size="md" />
+        return (
+            <View className="flex-1 justify-center items-center">
+                <Spinner color={colors.foreground} size="md" />
+            </View>
+        )
     }
 
     return (

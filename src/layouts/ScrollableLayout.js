@@ -31,6 +31,8 @@ const ScrollableLayout = ({ children, onRefresh, contentContainerStyle }) => {
                 contentContainerStyle={{
                     flexGrow: 1,
                     ...contentContainerStyle,
+                    padding: 0,
+                    margin: 0,
                 }}
                 keyboardShouldPersistTaps="handled"
                 enableOnAndroid={true}

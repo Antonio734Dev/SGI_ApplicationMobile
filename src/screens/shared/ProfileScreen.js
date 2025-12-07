@@ -10,6 +10,8 @@ import { required, onlyLetters, validEmail, validPhone, minLength } from '../../
 import { useAuth } from '../../contexts/AuthContext'
 import { LinearGradient } from 'expo-linear-gradient'
 import ThemeSwitcher from '../../components/ThemeSwitcher'
+import { getMyNotices } from '../../services/notice'
+import { formatDateLiteral } from '../../utils/utils'
 
 const { height } = Dimensions.get('window')
 const MODAL_MAX_HEIGHT = height * 0.75
@@ -409,6 +411,118 @@ const EditProfileModalContent = ({ modalRef, profile, onProfileUpdated, alertRef
         </Modalize>
     )
 }
+
+// =====================================================================
+// MODAL DE NOTIFICACIONES
+// =====================================================================
+const NotificationsModalContent = ({ modalRef, alertRef }) => {
+    const { colors } = useTheme()
+    const [isLoading, setIsLoading] = useState(false)
+    const [notices, setNotices] = useState([])
+
+    const fetchNotices = async () => {
+        try {
+            setIsLoading(true)
+            const response = await getMyNotices()
+            // El backend devuelve ResponseObject con data que contiene la lista
+            const noticesList = Array.isArray(response?.data) ? response.data : []
+            setNotices(noticesList)
+        } catch (error) {
+            console.error('Error fetching notices:', error)
+            alertRef.current?.show('Error', 'No se pudieron cargar las notificaciones', 'error')
+            setNotices([])
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const onClose = () => modalRef.current?.close()
+
+    const onOpen = () => {
+        fetchNotices()
+    }
+
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A'
+        return formatDateLiteral(dateString, true)
+    }
+
+    return (
+        <Modalize ref={modalRef} {...MODAL_ANIMATION_PROPS} onOpen={onOpen} modalStyle={{ backgroundColor: colors.background }}>
+            <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={{
+                        paddingHorizontal: '6%',
+                        paddingTop: '9%',
+                        paddingBottom: '6%',
+                    }}
+                >
+                    <View className="flex gap-0 mb-8">
+                        <View className="flex flex-row justify-between items-center">
+                            <Text className="text-foreground text-2xl font-medium">Notificaciones</Text>
+                            <Button isIconOnly className="bg-transparent shrink-0" onPress={onClose}>
+                                <Ionicons name="close-outline" size={24} color={colors.foreground} />
+                            </Button>
+                        </View>
+                        <Text className="text-muted-foreground">Tus notificaciones activas</Text>
+                    </View>
+
+                    {isLoading ? (
+                        <View className="py-10 items-center">
+                            <Spinner color={colors.accent} size="lg" />
+                            <Text className="text-muted-foreground mt-4">Cargando notificaciones...</Text>
+                        </View>
+                    ) : notices.length > 0 ? (
+                        <View className="gap-3">
+                            {notices.map((notice) => (
+                                <View key={notice.id} className="bg-accent-soft rounded-lg p-4 border border-border/20">
+                                    <View className="flex-row items-start justify-between mb-2">
+                                        <View className="flex-1 pr-2">
+                                            <Text className="text-foreground font-medium text-lg mb-1" numberOfLines={2}>
+                                                {notice.title || 'Sin título'}
+                                            </Text>
+                                            {notice.description && (
+                                                <Text className="text-muted-foreground text-[14px] mt-1" numberOfLines={3}>
+                                                    {notice.description}
+                                                </Text>
+                                            )}
+                                        </View>
+                                        {notice.status && <View className="h-2 w-2 rounded-full bg-accent shrink-0 mt-2" />}
+                                    </View>
+                                    <View className="mt-3 pt-3 border-t border-border/30">
+                                        <View className="flex-row items-center justify-between">
+                                            {notice.createdByName && (
+                                                <View className="flex-row items-center gap-2">
+                                                    <Ionicons name="person-outline" size={16} color={colors.mutedForeground} />
+                                                    <Text className="text-muted-foreground text-[12px]">{notice.createdByName}</Text>
+                                                </View>
+                                            )}
+                                            {notice.createdAt && (
+                                                <View className="flex-row items-center gap-2">
+                                                    <Ionicons name="time-outline" size={16} color={colors.mutedForeground} />
+                                                    <Text className="text-muted-foreground text-[12px]">{formatDate(notice.createdAt)}</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    ) : (
+                        <View className="py-12 items-center">
+                            <Ionicons name="notifications-off-outline" size={64} color={colors.muted} />
+                            <Text className="text-muted-foreground text-lg mt-4 text-center">No hay notificaciones</Text>
+                            <Text className="text-muted-foreground text-[14px] mt-2 text-center">No tienes notificaciones activas en este momento</Text>
+                        </View>
+                    )}
+                </ScrollView>
+            </View>
+        </Modalize>
+    )
+}
+
 // =====================================================================
 // MODAL DE CAMBIO DE CONTRASEÑA
 // =====================================================================
@@ -670,6 +784,7 @@ const ProfileScreen = () => {
     const editModalRef = useRef(null)
     const passwordModalRef = useRef(null)
     const alertRef = useRef(null)
+    const notificationsModalRef = useRef(null)
 
     const fetchProfile = async () => {
         try {
@@ -695,6 +810,12 @@ const ProfileScreen = () => {
     useEffect(() => {
         fetchProfile()
     }, [])
+
+    const openNotificationsModal = () => {
+        setTimeout(() => {
+            notificationsModalRef.current?.open()
+        }, 0)
+    }
 
     const openEditModal = () => {
         setTimeout(() => {
@@ -833,6 +954,9 @@ const ProfileScreen = () => {
                                 <Text className="font-bold text-[32px] text-foreground">Perfil</Text>
                                 <View className="flex-row gap-0 items-center">
                                     <ThemeSwitcher />
+                                    <Button isIconOnly className="size-12 bg-transparent shrink-0" isDisabled={isLoading} onPress={openNotificationsModal}>
+                                        <Ionicons name="notifications-outline" size={24} color={colors.foreground} />
+                                    </Button>
                                     <Button isIconOnly className="size-12 bg-transparent shrink-0" isDisabled={isLoading} onPress={openPasswordModal}>
                                         <Ionicons name="key-outline" size={24} color={colors.foreground} />
                                     </Button>
@@ -914,6 +1038,7 @@ const ProfileScreen = () => {
             {/* Modales */}
             <EditProfileModalContent modalRef={editModalRef} profile={profile} onProfileUpdated={fetchProfile} alertRef={alertRef} />
             <ChangePasswordModalContent modalRef={passwordModalRef} onPasswordChanged={() => {}} alertRef={alertRef} />
+            <NotificationsModalContent modalRef={notificationsModalRef} alertRef={alertRef} />
             <CustomAlert ref={alertRef} />
         </View>
     )

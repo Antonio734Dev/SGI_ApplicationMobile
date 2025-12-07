@@ -7,9 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { formatDateLiteral } from '../../utils/utils'
 import { Modalize } from 'react-native-modalize'
 import { ScrollView } from 'react-native-gesture-handler'
-import { required, validPositiveNumber } from '../../utils/validators'
+import { required } from '../../utils/validators'
 // Servicios
-import { getStockCatalogues, createStockCatalogue, updateStockCatalogue, deleteStockCatalogue } from '../../services/product'
+import { getStockCatalogues, createStockCatalogue, updateStockCatalogue, toggleStockCatalogueStatus } from '../../services/product'
 
 const { height } = Dimensions.get('window')
 const MODAL_MAX_HEIGHT = height * 0.75
@@ -204,26 +204,19 @@ const CreateCatalogueModalContent = ({ modalRef, onCatalogueCreated, isLoading, 
         sku: '',
         description: '',
         unidad: '',
-        stockMinimo: '',
-        stockMaximo: '',
     })
 
-    // ... (Lógica de estado y validación idéntica a tu código original)
     const [catalogueErrors, setCatalogueErrors] = useState({
         name: [],
         sku: [],
         description: [],
         unidad: [],
-        stockMinimo: [],
-        stockMaximo: [],
     })
     const validators = {
         name: [required],
         sku: [],
         description: [],
         unidad: [required],
-        stockMinimo: [required, validPositiveNumber],
-        stockMaximo: [required, validPositiveNumber],
     }
     const runValidators = (value, fns) => fns.map((fn) => fn(value)).filter(Boolean)
 
@@ -241,34 +234,25 @@ const CreateCatalogueModalContent = ({ modalRef, onCatalogueCreated, isLoading, 
             sku: '',
             description: '',
             unidad: '',
-            stockMinimo: '',
-            stockMaximo: '',
         })
         setCatalogueErrors({
             name: [],
             sku: [],
             description: [],
             unidad: [],
-            stockMinimo: [],
-            stockMaximo: [],
         })
     }
 
     const handleCreate = async () => {
-        // ... (Lógica de handleCreate idéntica a tu código original)
         const nameErrs = runValidators(newCatalogue.name, validators.name)
         const unidadErrs = runValidators(newCatalogue.unidad, validators.unidad)
-        const stockMinimoErrs = runValidators(newCatalogue.stockMinimo, validators.stockMinimo)
-        const stockMaximoErrs = runValidators(newCatalogue.stockMaximo, validators.stockMaximo)
 
-        if (nameErrs.length > 0 || unidadErrs.length > 0 || stockMinimoErrs.length > 0 || stockMaximoErrs.length > 0) {
+        if (nameErrs.length > 0 || unidadErrs.length > 0) {
             setCatalogueErrors({
                 name: nameErrs,
                 sku: [],
                 description: [],
                 unidad: unidadErrs,
-                stockMinimo: stockMinimoErrs,
-                stockMaximo: stockMaximoErrs,
             })
             alertRef.current?.show('Atención', 'Por favor corrija los errores en el formulario.', 'warning')
             return
@@ -281,8 +265,6 @@ const CreateCatalogueModalContent = ({ modalRef, onCatalogueCreated, isLoading, 
                 sku: newCatalogue.sku.trim() || null,
                 description: newCatalogue.description.trim() || null,
                 unidad: newCatalogue.unidad.trim(),
-                stockMinimo: Number(newCatalogue.stockMinimo),
-                stockMaximo: Number(newCatalogue.stockMaximo),
             }
             await createStockCatalogue(catalogueData)
             onClose()
@@ -305,16 +287,7 @@ const CreateCatalogueModalContent = ({ modalRef, onCatalogueCreated, isLoading, 
     }
 
     const hasErrors = () => {
-        return (
-            catalogueErrors.name.length > 0 ||
-            catalogueErrors.unidad.length > 0 ||
-            catalogueErrors.stockMinimo.length > 0 ||
-            catalogueErrors.stockMaximo.length > 0 ||
-            !newCatalogue.name.trim() ||
-            !newCatalogue.unidad.trim() ||
-            !newCatalogue.stockMinimo ||
-            !newCatalogue.stockMaximo
-        )
+        return catalogueErrors.name.length > 0 || catalogueErrors.unidad.length > 0 || !newCatalogue.name.trim() || !newCatalogue.unidad.trim()
     }
 
     // El JSX de los inputs se mantiene igual, solo asegúrate que los estilos de TextField sean coherentes
@@ -459,68 +432,6 @@ const CreateCatalogueModalContent = ({ modalRef, onCatalogueCreated, isLoading, 
                                 <TextField.ErrorMessage>{catalogueErrors.unidad.join('\n')}</TextField.ErrorMessage>
                             ) : undefined}
                         </TextField>
-
-                        {/* STOCK MÍNIMO */}
-                        <TextField isRequired isInvalid={catalogueErrors.stockMinimo.length > 0}>
-                            <TextField.Label className="text-foreground font-medium mb-2">Stock mínimo</TextField.Label>
-                            <TextField.Input
-                                colors={{
-                                    blurBackground: colors.accentSoft,
-                                    focusBackground: colors.surface2,
-                                    blurBorder: catalogueErrors.stockMinimo.length > 0 ? colors.danger : colors.accentSoft,
-                                    focusBorder: catalogueErrors.stockMinimo.length > 0 ? colors.danger : colors.surface2,
-                                }}
-                                placeholder="Ej: 10"
-                                value={newCatalogue.stockMinimo}
-                                onChangeText={(text) => handleInputChange('stockMinimo', text)}
-                                keyboardType="numeric"
-                                cursorColor={colors.accent}
-                                selectionHandleColor={colors.accent}
-                                selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                            >
-                                <TextField.InputEndContent>
-                                    {catalogueErrors.stockMinimo.length === 0 && newCatalogue.stockMinimo ? (
-                                        <Ionicons name="checkmark" size={24} color={colors.accent} />
-                                    ) : catalogueErrors.stockMinimo.length > 0 ? (
-                                        <Ionicons name="close" size={24} color={colors.danger} />
-                                    ) : null}
-                                </TextField.InputEndContent>
-                            </TextField.Input>
-                            {catalogueErrors.stockMinimo.length > 0 ? (
-                                <TextField.ErrorMessage>{catalogueErrors.stockMinimo.join('\n')}</TextField.ErrorMessage>
-                            ) : undefined}
-                        </TextField>
-
-                        {/* STOCK MÁXIMO */}
-                        <TextField isRequired isInvalid={catalogueErrors.stockMaximo.length > 0}>
-                            <TextField.Label className="text-foreground font-medium mb-2">Stock máximo</TextField.Label>
-                            <TextField.Input
-                                colors={{
-                                    blurBackground: colors.accentSoft,
-                                    focusBackground: colors.surface2,
-                                    blurBorder: catalogueErrors.stockMaximo.length > 0 ? colors.danger : colors.accentSoft,
-                                    focusBorder: catalogueErrors.stockMaximo.length > 0 ? colors.danger : colors.surface2,
-                                }}
-                                placeholder="Ej: 100"
-                                value={newCatalogue.stockMaximo}
-                                onChangeText={(text) => handleInputChange('stockMaximo', text)}
-                                keyboardType="numeric"
-                                cursorColor={colors.accent}
-                                selectionHandleColor={colors.accent}
-                                selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                            >
-                                <TextField.InputEndContent>
-                                    {catalogueErrors.stockMaximo.length === 0 && newCatalogue.stockMaximo ? (
-                                        <Ionicons name="checkmark" size={24} color={colors.accent} />
-                                    ) : catalogueErrors.stockMaximo.length > 0 ? (
-                                        <Ionicons name="close" size={24} color={colors.danger} />
-                                    ) : null}
-                                </TextField.InputEndContent>
-                            </TextField.Input>
-                            {catalogueErrors.stockMaximo.length > 0 ? (
-                                <TextField.ErrorMessage>{catalogueErrors.stockMaximo.join('\n')}</TextField.ErrorMessage>
-                            ) : undefined}
-                        </TextField>
                     </View>
 
                     <View className="flex-row justify-end gap-3 pt-8">
@@ -557,24 +468,18 @@ const EditCatalogueModalContent = ({ modalRef, catalogue, onCatalogueUpdated, al
         sku: '',
         description: '',
         unidad: '',
-        stockMinimo: '',
-        stockMaximo: '',
     })
     const [catalogueErrors, setCatalogueErrors] = useState({
         name: [],
         sku: [],
         description: [],
         unidad: [],
-        stockMinimo: [],
-        stockMaximo: [],
     })
     const validators = {
         name: [required],
         sku: [],
         description: [],
         unidad: [required],
-        stockMinimo: [required, validPositiveNumber],
-        stockMaximo: [required, validPositiveNumber],
     }
     const runValidators = (value, fns) => fns.map((fn) => fn(value)).filter(Boolean)
 
@@ -593,16 +498,12 @@ const EditCatalogueModalContent = ({ modalRef, catalogue, onCatalogueUpdated, al
                 sku: catalogue.sku || '',
                 description: catalogue.description || '',
                 unidad: catalogue.unidad || '',
-                stockMinimo: catalogue.stockMinimo?.toString() || '',
-                stockMaximo: catalogue.stockMaximo?.toString() || '',
             })
             setCatalogueErrors({
                 name: [],
                 sku: [],
                 description: [],
                 unidad: [],
-                stockMinimo: [],
-                stockMaximo: [],
             })
         }
     }, [catalogue])
@@ -612,17 +513,13 @@ const EditCatalogueModalContent = ({ modalRef, catalogue, onCatalogueUpdated, al
     const handleSave = async () => {
         const nameErrs = runValidators(editedCatalogue.name, validators.name)
         const unidadErrs = runValidators(editedCatalogue.unidad, validators.unidad)
-        const stockMinimoErrs = runValidators(editedCatalogue.stockMinimo, validators.stockMinimo)
-        const stockMaximoErrs = runValidators(editedCatalogue.stockMaximo, validators.stockMaximo)
 
-        if (nameErrs.length > 0 || unidadErrs.length > 0 || stockMinimoErrs.length > 0 || stockMaximoErrs.length > 0) {
+        if (nameErrs.length > 0 || unidadErrs.length > 0) {
             setCatalogueErrors({
                 name: nameErrs,
                 sku: [],
                 description: [],
                 unidad: unidadErrs,
-                stockMinimo: stockMinimoErrs,
-                stockMaximo: stockMaximoErrs,
             })
             alertRef.current?.show('Atención', 'Por favor corrija los errores en el formulario.', 'warning')
             return
@@ -636,8 +533,6 @@ const EditCatalogueModalContent = ({ modalRef, catalogue, onCatalogueUpdated, al
                 sku: editedCatalogue.sku.trim() || null,
                 description: editedCatalogue.description.trim() || null,
                 unidad: editedCatalogue.unidad.trim(),
-                stockMinimo: Number(editedCatalogue.stockMinimo),
-                stockMaximo: Number(editedCatalogue.stockMaximo),
             }
             const response = await updateStockCatalogue(catalogueData)
             if (response.type === 'SUCCESS') {
@@ -658,16 +553,7 @@ const EditCatalogueModalContent = ({ modalRef, catalogue, onCatalogueUpdated, al
     }
 
     const hasErrors = () => {
-        return (
-            catalogueErrors.name.length > 0 ||
-            catalogueErrors.unidad.length > 0 ||
-            catalogueErrors.stockMinimo.length > 0 ||
-            catalogueErrors.stockMaximo.length > 0 ||
-            !editedCatalogue.name.trim() ||
-            !editedCatalogue.unidad.trim() ||
-            !editedCatalogue.stockMinimo ||
-            !editedCatalogue.stockMaximo
-        )
+        return catalogueErrors.name.length > 0 || catalogueErrors.unidad.length > 0 || !editedCatalogue.name.trim() || !editedCatalogue.unidad.trim()
     }
 
     // Retorna los mismos inputs que CreateCatalogueModalContent, omitidos por brevedad pero deben ser los mismos.
@@ -771,38 +657,6 @@ const EditCatalogueModalContent = ({ modalRef, catalogue, onCatalogueUpdated, al
                                         maxLength={50}
                                     />
                                 </TextField>
-
-                                <TextField isRequired isInvalid={catalogueErrors.stockMinimo.length > 0}>
-                                    <TextField.Label className="text-foreground font-medium mb-2">Stock mínimo</TextField.Label>
-                                    <TextField.Input
-                                        colors={{
-                                            blurBackground: colors.accentSoft,
-                                            focusBackground: colors.surface2,
-                                            blurBorder: catalogueErrors.stockMinimo.length > 0 ? colors.danger : colors.accentSoft,
-                                            focusBorder: catalogueErrors.stockMinimo.length > 0 ? colors.danger : colors.surface2,
-                                        }}
-                                        value={editedCatalogue.stockMinimo}
-                                        onChangeText={(text) => handleInputChange('stockMinimo', text)}
-                                        keyboardType="numeric"
-                                        cursorColor={colors.accent}
-                                    />
-                                </TextField>
-
-                                <TextField isRequired isInvalid={catalogueErrors.stockMaximo.length > 0}>
-                                    <TextField.Label className="text-foreground font-medium mb-2">Stock máximo</TextField.Label>
-                                    <TextField.Input
-                                        colors={{
-                                            blurBackground: colors.accentSoft,
-                                            focusBackground: colors.surface2,
-                                            blurBorder: catalogueErrors.stockMaximo.length > 0 ? colors.danger : colors.accentSoft,
-                                            focusBorder: catalogueErrors.stockMaximo.length > 0 ? colors.danger : colors.surface2,
-                                        }}
-                                        value={editedCatalogue.stockMaximo}
-                                        onChangeText={(text) => handleInputChange('stockMaximo', text)}
-                                        keyboardType="numeric"
-                                        cursorColor={colors.accent}
-                                    />
-                                </TextField>
                             </View>
 
                             <View className="flex-row justify-end gap-3 pt-8">
@@ -839,21 +693,21 @@ const DeleteCatalogueModalContent = ({ modalRef, catalogue, onCatalogueDeleted, 
     const onClose = () => modalRef.current?.close()
 
     const handleDelete = async () => {
-        // ... (Lógica original)
         try {
             setIsDeleting(true)
-            const response = await deleteStockCatalogue(catalogue.id)
+            const response = await toggleStockCatalogueStatus(catalogue.id)
             if (response.type === 'SUCCESS') {
                 onClose()
                 setTimeout(() => {
-                    alertRef.current?.show('Éxito', 'Catálogo eliminado correctamente', 'success')
+                    alertRef.current?.show('Éxito', 'Estado del catálogo actualizado correctamente', 'success')
                 }, 300)
                 if (onCatalogueDeleted) onCatalogueDeleted()
             } else {
-                alertRef.current?.show('Error', 'No se pudo eliminar el catálogo', 'error')
+                alertRef.current?.show('Error', 'No se pudo actualizar el estado del catálogo', 'error')
             }
         } catch (error) {
-            alertRef.current?.show('Error', 'Error al eliminar catálogo', 'error')
+            console.error('Error toggle catalogue status:', error)
+            alertRef.current?.show('Error', 'Error al actualizar estado del catálogo', 'error')
         } finally {
             setIsDeleting(false)
         }
@@ -949,12 +803,14 @@ const StockCataloguesScreen = () => {
     }
 
     const fetchData = async () => {
-        // ... (Logica fetchData)
         try {
             setIsLoading(true)
             const response = await getStockCatalogues()
-            const list = response?.data?.content || []
-            setCatalogues(list)
+            // El backend devuelve ResponseObject con data que contiene la lista
+            const list = Array.isArray(response?.data) ? response.data : []
+            // Filtrar solo catálogos activos (status === true)
+            const activeCatalogues = list.filter((cat) => cat.status === true)
+            setCatalogues(activeCatalogues)
         } catch (err) {
             console.error('Error fetch:', err)
             alertRef.current?.show('Error', 'No se pudieron cargar los catálogos', 'error')
@@ -1082,16 +938,13 @@ const StockCataloguesScreen = () => {
                                                     className="bg-accent-soft mb-2 rounded-lg overflow-hidden border border-border/20"
                                                 >
                                                     {/* HEADER / TRIGGER */}
-                                                    <Accordion.Trigger className="w-full bg-accent-soft pl-4 pr-1 py-2">
+                                                    <Accordion.Trigger className="w-full bg-accent-soft pl-4 pr-0 py-2">
                                                         <View className="flex-row items-center justify-between w-full">
                                                             {/* TEXTOS */}
                                                             <View className="flex-1 pr-2 justify-center py-1">
-                                                                <View className="flex-row items-center gap-2 mb-1">
-                                                                    <Ionicons name="albums-outline" size={16} color={colors.accent} />
-                                                                    <Text className="text-foreground font-medium text-lg" numberOfLines={1}>
-                                                                        {item.name}
-                                                                    </Text>
-                                                                </View>
+                                                                <Text className="text-foreground font-medium text-lg mb-1" numberOfLines={1}>
+                                                                    {item.name}
+                                                                </Text>
                                                                 <Text className="text-muted-foreground text-[14px]" numberOfLines={1}>
                                                                     {item.sku || 'Sin SKU'}
                                                                 </Text>
@@ -1100,6 +953,13 @@ const StockCataloguesScreen = () => {
                                                             {/* ACCIONES */}
                                                             <View className="flex flex-row items-center gap-0">
                                                                 <TouchableOpacity
+                                                                    onPress={() => openDeleteModal(item)}
+                                                                    className="w-12 h-12 flex items-center justify-center rounded-full"
+                                                                    activeOpacity={0.6}
+                                                                >
+                                                                    <Ionicons name="trash-outline" size={24} color={colors.accent} />
+                                                                </TouchableOpacity>
+                                                                <TouchableOpacity
                                                                     onPress={() => openEditModal(item)}
                                                                     className="w-12 h-12 flex items-center justify-center rounded-full"
                                                                     activeOpacity={0.6}
@@ -1107,14 +967,7 @@ const StockCataloguesScreen = () => {
                                                                     <Ionicons name="create-outline" size={24} color={colors.accent} />
                                                                 </TouchableOpacity>
 
-                                                                <TouchableOpacity
-                                                                    onPress={() => openDeleteModal(item)}
-                                                                    className="w-12 h-12 flex items-center justify-center rounded-full"
-                                                                    activeOpacity={0.6}
-                                                                >
-                                                                    <Ionicons name="trash-outline" size={24} color={colors.danger} />
-                                                                </TouchableOpacity>
-
+                                                                {/* Indicador también ajustado al área de toque */}
                                                                 <View className="w-12 h-12 flex items-center justify-center">
                                                                     <Accordion.Indicator
                                                                         iconProps={{
@@ -1133,39 +986,15 @@ const StockCataloguesScreen = () => {
                                                         <View className="gap-2">
                                                             {item.description && <InfoRow label="Descripción" value={item.description} />}
                                                             <InfoRow label="Unidad" value={item.unidad} />
-                                                            <InfoRow label="Stock Min" value={item.stockMinimo} />
-                                                            <InfoRow label="Stock Max" value={item.stockMaximo} />
-
-                                                            {/* Fila personalizada para stock actual con colores */}
-                                                            <View className="flex-row items-start justify-between">
-                                                                <Text className="text-[14px] text-muted-foreground w-24 pt-0.5">Stock Actual</Text>
-                                                                <View className="flex-1 items-end">
-                                                                    <View className="flex-row items-center gap-2">
-                                                                        <Text
-                                                                            className={`text-[14px] font-medium ${
-                                                                                item.stockActual <= item.stockMinimo
-                                                                                    ? 'text-danger'
-                                                                                    : item.stockActual >= item.stockMaximo
-                                                                                      ? 'text-accent'
-                                                                                      : 'text-foreground'
-                                                                            }`}
-                                                                        >
-                                                                            {item.stockActual || 0}
-                                                                        </Text>
-                                                                        {item.stockActual <= item.stockMinimo && (
-                                                                            <View className="bg-danger/10 px-2 py-0.5 rounded-full">
-                                                                                <Text className="text-danger text-[10px] font-semibold uppercase">Bajo</Text>
-                                                                            </View>
-                                                                        )}
-                                                                        {item.stockActual >= item.stockMaximo && (
-                                                                            <View className="bg-accent/10 px-2 py-0.5 rounded-full">
-                                                                                <Text className="text-accent text-[10px] font-semibold uppercase">Máximo</Text>
-                                                                            </View>
-                                                                        )}
-                                                                    </View>
-                                                                </View>
-                                                            </View>
-
+                                                            {item.stockActual !== undefined && item.stockActual !== null && (
+                                                                <InfoRow label="Stock Actual" value={item.stockActual.toString()} />
+                                                            )}
+                                                            {item.stockCantidad !== undefined && item.stockCantidad !== null && (
+                                                                <InfoRow label="Stock Cantidad" value={item.stockCantidad.toString()} />
+                                                            )}
+                                                            {item.cantidad !== undefined && item.cantidad !== null && (
+                                                                <InfoRow label="Cantidad" value={item.cantidad.toString()} />
+                                                            )}
                                                             <InfoRow label="Creado" value={item.createdAt ? formatDateLiteral(item.createdAt, true) : 'N/A'} />
                                                         </View>
                                                     </Accordion.Content>
@@ -1175,32 +1004,37 @@ const StockCataloguesScreen = () => {
 
                                         {/* Paginación */}
                                         {pages > 1 && (
-                                            <View className="flex-row justify-center items-center gap-2 mt-6">
-                                                <Button
-                                                    isIconOnly
-                                                    className="bg-transparent"
-                                                    isDisabled={page === 1}
-                                                    onPress={() => setPage((p) => Math.max(1, p - 1))}
-                                                >
-                                                    <Ionicons name="chevron-back-outline" size={24} color={page === 1 ? colors.muted : colors.accent} />
-                                                </Button>
-                                                <Text className="text-foreground font-medium">
-                                                    {page} de {pages}
-                                                </Text>
-                                                <Button
-                                                    isIconOnly
-                                                    className="bg-transparent"
-                                                    isDisabled={page === pages}
-                                                    onPress={() => setPage((p) => Math.min(pages, p + 1))}
-                                                >
-                                                    <Ionicons name="chevron-forward-outline" size={24} color={page === pages ? colors.muted : colors.accent} />
-                                                </Button>
+                                            <View className="items-end mt-2">
+                                                <View className="flex-row items-center justify-between rounded-lg">
+                                                    <Button
+                                                        isIconOnly
+                                                        className="bg-transparent"
+                                                        isDisabled={page === 1}
+                                                        onPress={() => setPage((p) => Math.max(1, p - 1))}
+                                                    >
+                                                        <Ionicons name="chevron-back-outline" size={24} color={page === 1 ? colors.muted : colors.accent} />
+                                                        <Text className="text-foreground">{page}</Text>
+                                                    </Button>
+                                                    <Button
+                                                        isIconOnly
+                                                        className="bg-transparent"
+                                                        isDisabled={page === pages || pages === 0}
+                                                        onPress={() => setPage((p) => Math.min(pages, p + 1))}
+                                                    >
+                                                        <Text className="text-muted-foreground">/ {pages || 1}</Text>
+                                                        <Ionicons
+                                                            name="chevron-forward-outline"
+                                                            size={24}
+                                                            color={page === pages || pages === 0 ? colors.muted : colors.accent}
+                                                        />
+                                                    </Button>
+                                                </View>
                                             </View>
                                         )}
                                     </>
                                 ) : (
                                     <View className="items-center justify-center py-12">
-                                        <Ionicons name="folder-open-outline" size={64} color={colors.muted} />
+                                        <Ionicons name="albums-outline" size={64} color={colors.muted} />
                                         <Text className="text-muted-foreground text-lg mt-4">No se encontraron catálogos</Text>
                                     </View>
                                 )}

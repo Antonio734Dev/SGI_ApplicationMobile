@@ -17,7 +17,7 @@ import * as MediaLibrary from 'expo-media-library'
 import * as Sharing from 'expo-sharing'
 
 // Servicios
-import { getProducts, createProduct, getStockCatalogues, getProductStatuses, getQrCodeImage, getProductByQrHash } from '../../services/product'
+import { getProducts, createProduct, updateProduct, getStockCatalogues, getProductStatuses, getQrCodeImage, getProductByQrHash } from '../../services/product'
 
 const { height } = Dimensions.get('window')
 const MODAL_MAX_HEIGHT = height * 0.75
@@ -197,9 +197,13 @@ const FiltersModalContent = ({
                             </View>
                             <RadioGroup value={catalogueFilter} onValueChange={(val) => setCatalogueFilter(val)}>
                                 <RenderRadioItem value="all" label="Todos los catálogos" />
-                                {catalogues.map((cat) => (
-                                    <RenderRadioItem key={cat.id} value={String(cat.id)} label={cat.name} />
-                                ))}
+                                {Array.isArray(catalogues) && catalogues.length > 0 ? (
+                                    catalogues.map((cat) => <RenderRadioItem key={cat.id} value={String(cat.id)} label={cat.name} />)
+                                ) : (
+                                    <View className="p-4 items-center">
+                                        <Text className="text-muted-foreground">No hay catálogos disponibles</Text>
+                                    </View>
+                                )}
                             </RadioGroup>
                         </View>
 
@@ -413,10 +417,12 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
         stockCatalogueId: '',
         productStatusId: '',
         lote: '',
+        loteProveedor: '',
+        fabricante: '',
+        distribuidor: '',
         fechaIngreso: '',
         fechaCaducidad: '',
-        reanalisis: '',
-        cantidadTexto: '',
+        cantidad: '',
         totalEnvases: '',
     })
 
@@ -424,10 +430,12 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
         stockCatalogueId: [],
         productStatusId: [],
         lote: [],
+        loteProveedor: [],
+        fabricante: [],
+        distribuidor: [],
         fechaIngreso: [],
         fechaCaducidad: [],
-        reanalisis: [],
-        cantidadTexto: [],
+        cantidad: [],
         totalEnvases: [],
     })
 
@@ -436,10 +444,12 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
         stockCatalogueId: [required],
         productStatusId: [required],
         lote: [required],
-        fechaIngreso: [required],
-        fechaCaducidad: [required],
-        reanalisis: [],
-        cantidadTexto: [required, validPositiveNumber],
+        loteProveedor: [],
+        fabricante: [],
+        distribuidor: [],
+        fechaIngreso: [required, validDate],
+        fechaCaducidad: [required, validDate],
+        cantidad: [required, validPositiveNumber],
         totalEnvases: [required, validPositiveNumber],
     }
 
@@ -458,20 +468,24 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
             stockCatalogueId: '',
             productStatusId: '',
             lote: '',
+            loteProveedor: '',
+            fabricante: '',
+            distribuidor: '',
             fechaIngreso: '',
             fechaCaducidad: '',
-            reanalisis: '',
-            cantidadTexto: '',
+            cantidad: '',
             totalEnvases: '',
         })
         setProductErrors({
             stockCatalogueId: [],
             productStatusId: [],
             lote: [],
+            loteProveedor: [],
+            fabricante: [],
+            distribuidor: [],
             fechaIngreso: [],
             fechaCaducidad: [],
-            reanalisis: [],
-            cantidadTexto: [],
+            cantidad: [],
             totalEnvases: [],
         })
     }
@@ -493,8 +507,7 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
         const loteErrs = runValidators(newProduct.lote, validators.lote)
         const fechaIngresoErrs = runValidators(newProduct.fechaIngreso, validators.fechaIngreso)
         const fechaCaducidadErrs = runValidators(newProduct.fechaCaducidad, validators.fechaCaducidad)
-        const reanalisisErrs = runValidators(newProduct.reanalisis, validators.reanalisis)
-        const cantidadTextoErrs = runValidators(newProduct.cantidadTexto, validators.cantidadTexto)
+        const cantidadErrs = runValidators(newProduct.cantidad, validators.cantidad)
         const totalEnvasesErrs = runValidators(newProduct.totalEnvases, validators.totalEnvases)
 
         if (
@@ -503,18 +516,19 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
             loteErrs.length > 0 ||
             fechaIngresoErrs.length > 0 ||
             fechaCaducidadErrs.length > 0 ||
-            reanalisisErrs.length > 0 ||
-            cantidadTextoErrs.length > 0 ||
+            cantidadErrs.length > 0 ||
             totalEnvasesErrs.length > 0
         ) {
             setProductErrors({
                 stockCatalogueId: stockCatalogueIdErrs,
                 productStatusId: productStatusIdErrs,
                 lote: loteErrs,
+                loteProveedor: [],
+                fabricante: [],
+                distribuidor: [],
                 fechaIngreso: fechaIngresoErrs,
                 fechaCaducidad: fechaCaducidadErrs,
-                reanalisis: reanalisisErrs,
-                cantidadTexto: cantidadTextoErrs,
+                cantidad: cantidadErrs,
                 totalEnvases: totalEnvasesErrs,
             })
             alertRef.current?.show('Atención', 'Por favor corrija los errores en el formulario.', 'warning')
@@ -528,10 +542,12 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                 stockCatalogueId: Number(newProduct.stockCatalogueId),
                 productStatusId: Number(newProduct.productStatusId),
                 lote: newProduct.lote.trim(),
-                fechaIngreso: newProduct.fechaIngreso,
-                fechaCaducidad: newProduct.fechaCaducidad,
-                reanalisis: newProduct.reanalisis || null,
-                cantidadTexto: Number(newProduct.cantidadTexto),
+                loteProveedor: newProduct.loteProveedor.trim() || null,
+                fabricante: newProduct.fabricante.trim() || null,
+                distribuidor: newProduct.distribuidor.trim() || null,
+                fechaIngreso: newProduct.fechaIngreso.trim() || null,
+                fechaCaducidad: newProduct.fechaCaducidad.trim() || null,
+                cantidad: Number(newProduct.cantidad),
                 totalEnvases: Number(newProduct.totalEnvases),
             }
 
@@ -552,10 +568,12 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                         stockCatalogueId: [],
                         productStatusId: [],
                         lote: [],
+                        loteProveedor: [],
+                        fabricante: [],
+                        distribuidor: [],
                         fechaIngreso: [],
                         fechaCaducidad: [],
-                        reanalisis: [],
-                        cantidadTexto: [],
+                        cantidad: [],
                         totalEnvases: [],
                     }
                     result.forEach((validationError) => {
@@ -582,15 +600,14 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
             productErrors.lote.length > 0 ||
             productErrors.fechaIngreso.length > 0 ||
             productErrors.fechaCaducidad.length > 0 ||
-            productErrors.reanalisis.length > 0 ||
-            productErrors.cantidadTexto.length > 0 ||
+            productErrors.cantidad.length > 0 ||
             productErrors.totalEnvases.length > 0 ||
             !newProduct.stockCatalogueId ||
             !newProduct.productStatusId ||
             !newProduct.lote.trim() ||
             !newProduct.fechaIngreso ||
             !newProduct.fechaCaducidad ||
-            !newProduct.cantidadTexto ||
+            !newProduct.cantidad ||
             !newProduct.totalEnvases
         )
     }
@@ -739,64 +756,112 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                                 ) : undefined}
                             </TextField>
 
-                            {/* REANÁLISIS */}
-                            <TextField isInvalid={productErrors.reanalisis.length > 0}>
-                                <TextField.Label className="text-foreground font-medium mb-2">Reanálisis (Opcional)</TextField.Label>
+                            {/* LOTE PROVEEDOR */}
+                            <TextField isInvalid={productErrors.loteProveedor.length > 0}>
+                                <View className="flex-row justify-between items-center mb-2">
+                                    <TextField.Label className="text-foreground font-medium">Lote proveedor (Opcional)</TextField.Label>
+                                    <Text className="text-muted-foreground text-xs">{newProduct.loteProveedor.length} / 100</Text>
+                                </View>
                                 <TextField.Input
                                     colors={{
                                         blurBackground: colors.accentSoft,
                                         focusBackground: colors.surface2,
-                                        blurBorder: productErrors.reanalisis.length > 0 ? colors.danger : colors.accentSoft,
-                                        focusBorder: productErrors.reanalisis.length > 0 ? colors.danger : colors.surface2,
+                                        blurBorder: productErrors.loteProveedor.length > 0 ? colors.danger : colors.accentSoft,
+                                        focusBorder: productErrors.loteProveedor.length > 0 ? colors.danger : colors.surface2,
                                     }}
-                                    placeholder="YYYY-MM-DD"
-                                    value={newProduct.reanalisis}
-                                    onChangeText={(text) => handleInputChange('reanalisis', text)}
+                                    placeholder="Lote del proveedor"
+                                    value={newProduct.loteProveedor}
+                                    onChangeText={(text) => handleInputChange('loteProveedor', text)}
                                     cursorColor={colors.accent}
                                     selectionHandleColor={colors.accent}
                                     selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                >
-                                    <TextField.InputEndContent>
-                                        {productErrors.reanalisis.length === 0 && newProduct.reanalisis ? (
-                                            <Ionicons name="checkmark" size={24} color={colors.accent} />
-                                        ) : productErrors.reanalisis.length > 0 ? (
-                                            <Ionicons name="close" size={24} color={colors.danger} />
-                                        ) : null}
-                                    </TextField.InputEndContent>
-                                </TextField.Input>
-                                {productErrors.reanalisis.length > 0 ? (
-                                    <TextField.ErrorMessage>{productErrors.reanalisis.join('\n')}</TextField.ErrorMessage>
+                                    maxLength={100}
+                                />
+                                {productErrors.loteProveedor.length > 0 ? (
+                                    <TextField.ErrorMessage>{productErrors.loteProveedor.join('\n')}</TextField.ErrorMessage>
                                 ) : undefined}
                             </TextField>
 
-                            {/* CANTIDAD TEXTO */}
-                            <TextField isRequired isInvalid={productErrors.cantidadTexto.length > 0}>
+                            {/* FABRICANTE */}
+                            <TextField isInvalid={productErrors.fabricante.length > 0}>
+                                <View className="flex-row justify-between items-center mb-2">
+                                    <TextField.Label className="text-foreground font-medium">Fabricante (Opcional)</TextField.Label>
+                                    <Text className="text-muted-foreground text-xs">{newProduct.fabricante.length} / 200</Text>
+                                </View>
+                                <TextField.Input
+                                    colors={{
+                                        blurBackground: colors.accentSoft,
+                                        focusBackground: colors.surface2,
+                                        blurBorder: productErrors.fabricante.length > 0 ? colors.danger : colors.accentSoft,
+                                        focusBorder: productErrors.fabricante.length > 0 ? colors.danger : colors.surface2,
+                                    }}
+                                    placeholder="Nombre del fabricante"
+                                    value={newProduct.fabricante}
+                                    onChangeText={(text) => handleInputChange('fabricante', text)}
+                                    cursorColor={colors.accent}
+                                    selectionHandleColor={colors.accent}
+                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                    maxLength={200}
+                                />
+                                {productErrors.fabricante.length > 0 ? (
+                                    <TextField.ErrorMessage>{productErrors.fabricante.join('\n')}</TextField.ErrorMessage>
+                                ) : undefined}
+                            </TextField>
+
+                            {/* DISTRIBUIDOR */}
+                            <TextField isInvalid={productErrors.distribuidor.length > 0}>
+                                <View className="flex-row justify-between items-center mb-2">
+                                    <TextField.Label className="text-foreground font-medium">Distribuidor (Opcional)</TextField.Label>
+                                    <Text className="text-muted-foreground text-xs">{newProduct.distribuidor.length} / 200</Text>
+                                </View>
+                                <TextField.Input
+                                    colors={{
+                                        blurBackground: colors.accentSoft,
+                                        focusBackground: colors.surface2,
+                                        blurBorder: productErrors.distribuidor.length > 0 ? colors.danger : colors.accentSoft,
+                                        focusBorder: productErrors.distribuidor.length > 0 ? colors.danger : colors.surface2,
+                                    }}
+                                    placeholder="Nombre del distribuidor"
+                                    value={newProduct.distribuidor}
+                                    onChangeText={(text) => handleInputChange('distribuidor', text)}
+                                    cursorColor={colors.accent}
+                                    selectionHandleColor={colors.accent}
+                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                    maxLength={200}
+                                />
+                                {productErrors.distribuidor.length > 0 ? (
+                                    <TextField.ErrorMessage>{productErrors.distribuidor.join('\n')}</TextField.ErrorMessage>
+                                ) : undefined}
+                            </TextField>
+
+                            {/* CANTIDAD */}
+                            <TextField isRequired isInvalid={productErrors.cantidad.length > 0}>
                                 <TextField.Label className="text-foreground font-medium mb-2">Cantidad (ml/g por envase)</TextField.Label>
                                 <TextField.Input
                                     colors={{
                                         blurBackground: colors.accentSoft,
                                         focusBackground: colors.surface2,
-                                        blurBorder: productErrors.cantidadTexto.length > 0 ? colors.danger : colors.accentSoft,
-                                        focusBorder: productErrors.cantidadTexto.length > 0 ? colors.danger : colors.surface2,
+                                        blurBorder: productErrors.cantidad.length > 0 ? colors.danger : colors.accentSoft,
+                                        focusBorder: productErrors.cantidad.length > 0 ? colors.danger : colors.surface2,
                                     }}
                                     placeholder="Ej: 500"
-                                    value={newProduct.cantidadTexto}
-                                    onChangeText={(text) => handleInputChange('cantidadTexto', text)}
+                                    value={newProduct.cantidad}
+                                    onChangeText={(text) => handleInputChange('cantidad', text)}
                                     keyboardType="numeric"
                                     cursorColor={colors.accent}
                                     selectionHandleColor={colors.accent}
                                     selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
                                 >
                                     <TextField.InputEndContent>
-                                        {productErrors.cantidadTexto.length === 0 && newProduct.cantidadTexto ? (
+                                        {productErrors.cantidad.length === 0 && newProduct.cantidad ? (
                                             <Ionicons name="checkmark" size={24} color={colors.accent} />
-                                        ) : productErrors.cantidadTexto.length > 0 ? (
+                                        ) : productErrors.cantidad.length > 0 ? (
                                             <Ionicons name="close" size={24} color={colors.danger} />
                                         ) : null}
                                     </TextField.InputEndContent>
                                 </TextField.Input>
-                                {productErrors.cantidadTexto.length > 0 ? (
-                                    <TextField.ErrorMessage>{productErrors.cantidadTexto.join('\n')}</TextField.ErrorMessage>
+                                {productErrors.cantidad.length > 0 ? (
+                                    <TextField.ErrorMessage>{productErrors.cantidad.join('\n')}</TextField.ErrorMessage>
                                 ) : undefined}
                             </TextField>
 
@@ -867,18 +932,24 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                                 <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Catálogos disponibles</Text>
                             </View>
                             <RadioGroup value={String(newProduct.stockCatalogueId)} onValueChange={(val) => handleInputChange('stockCatalogueId', val)}>
-                                {catalogues.map((cat) => (
-                                    <RadioGroup.Item
-                                        key={cat.id}
-                                        value={String(cat.id)}
-                                        className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
-                                    >
-                                        <View className="flex-1">
-                                            <RadioGroup.Title className="text-foreground font-medium text-lg">{cat.name}</RadioGroup.Title>
-                                        </View>
-                                        <RadioGroup.Indicator />
-                                    </RadioGroup.Item>
-                                ))}
+                                {Array.isArray(catalogues) && catalogues.length > 0 ? (
+                                    catalogues.map((cat) => (
+                                        <RadioGroup.Item
+                                            key={cat.id}
+                                            value={String(cat.id)}
+                                            className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
+                                        >
+                                            <View className="flex-1">
+                                                <RadioGroup.Title className="text-foreground font-medium text-lg">{cat.name}</RadioGroup.Title>
+                                            </View>
+                                            <RadioGroup.Indicator />
+                                        </RadioGroup.Item>
+                                    ))
+                                ) : (
+                                    <View className="p-4 items-center">
+                                        <Text className="text-muted-foreground">No hay catálogos disponibles</Text>
+                                    </View>
+                                )}
                             </RadioGroup>
                         </View>
                     </ScrollView>
@@ -937,6 +1008,9 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
         stockCatalogueId: '',
         productStatusId: '',
         lote: '',
+        loteProveedor: '',
+        fabricante: '',
+        distribuidor: '',
         fechaIngreso: '',
         fechaCaducidad: '',
         reanalisis: '',
@@ -945,6 +1019,9 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
         stockCatalogueId: [],
         productStatusId: [],
         lote: [],
+        loteProveedor: [],
+        fabricante: [],
+        distribuidor: [],
         fechaIngreso: [],
         fechaCaducidad: [],
         reanalisis: [],
@@ -954,9 +1031,12 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
         stockCatalogueId: [required],
         productStatusId: [required],
         lote: [required],
-        fechaIngreso: [required],
-        fechaCaducidad: [required],
-        reanalisis: [],
+        loteProveedor: [],
+        fabricante: [],
+        distribuidor: [],
+        fechaIngreso: [required, validDate],
+        fechaCaducidad: [required, validDate],
+        reanalisis: [validDate],
     }
 
     const runValidators = (value, fns) => fns.map((fn) => fn(value)).filter(Boolean)
@@ -975,6 +1055,9 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                 stockCatalogueId: product.stockCatalogueId || '',
                 productStatusId: product.productStatusId || '',
                 lote: product.lote || '',
+                loteProveedor: product.loteProveedor || '',
+                fabricante: product.fabricante || '',
+                distribuidor: product.distribuidor || '',
                 fechaIngreso: product.fecha ? product.fecha.split('T')[0] : '',
                 fechaCaducidad: product.caducidad ? product.caducidad.split('T')[0] : '',
                 reanalisis: product.reanalisis ? product.reanalisis.split('T')[0] : '',
@@ -983,6 +1066,9 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                 stockCatalogueId: [],
                 productStatusId: [],
                 lote: [],
+                loteProveedor: [],
+                fabricante: [],
+                distribuidor: [],
                 fechaIngreso: [],
                 fechaCaducidad: [],
                 reanalisis: [],
@@ -1009,23 +1095,24 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
         const loteErrs = runValidators(editedProduct.lote, validators.lote)
         const fechaIngresoErrs = runValidators(editedProduct.fechaIngreso, validators.fechaIngreso)
         const fechaCaducidadErrs = runValidators(editedProduct.fechaCaducidad, validators.fechaCaducidad)
-        const reanalisisErrs = runValidators(editedProduct.reanalisis, validators.reanalisis)
 
         if (
             stockCatalogueIdErrs.length > 0 ||
             productStatusIdErrs.length > 0 ||
             loteErrs.length > 0 ||
             fechaIngresoErrs.length > 0 ||
-            fechaCaducidadErrs.length > 0 ||
-            reanalisisErrs.length > 0
+            fechaCaducidadErrs.length > 0
         ) {
             setProductErrors({
                 stockCatalogueId: stockCatalogueIdErrs,
                 productStatusId: productStatusIdErrs,
                 lote: loteErrs,
+                loteProveedor: [],
+                fabricante: [],
+                distribuidor: [],
                 fechaIngreso: fechaIngresoErrs,
                 fechaCaducidad: fechaCaducidadErrs,
-                reanalisis: reanalisisErrs,
+                reanalisis: [],
             })
             alertRef.current?.show('Atención', 'Por favor corrija los errores en el formulario.', 'warning')
             return
@@ -1033,13 +1120,57 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
 
         try {
             setIsSaving(true)
-            // TODO: Implementar actualización cuando exista el servicio
-            // await updateProduct(editedProduct)
-            alertRef.current?.show('Info', 'Funcionalidad de edición en desarrollo', 'warning')
-            onClose()
+            const productData = {
+                id: editedProduct.id,
+                stockCatalogueId: Number(editedProduct.stockCatalogueId),
+                productStatusId: Number(editedProduct.productStatusId),
+                lote: editedProduct.lote.trim(),
+                loteProveedor: editedProduct.loteProveedor.trim() || null,
+                fabricante: editedProduct.fabricante.trim() || null,
+                distribuidor: editedProduct.distribuidor.trim() || null,
+                fechaIngreso: editedProduct.fechaIngreso.trim() || null,
+                fechaCaducidad: editedProduct.fechaCaducidad.trim() || null,
+                reanalisis: editedProduct.reanalisis.trim() || null,
+            }
+            const response = await updateProduct(productData)
+            if (response.type === 'SUCCESS') {
+                onClose()
+                setTimeout(() => {
+                    alertRef.current?.show('Éxito', 'Producto actualizado correctamente', 'success')
+                }, 300)
+                if (onProductUpdated) onProductUpdated()
+            } else {
+                alertRef.current?.show('Error', 'No se pudo actualizar el producto', 'error')
+            }
         } catch (error) {
             console.error('Error update product:', error)
-            alertRef.current?.show('Error', 'No se pudo actualizar el producto', 'error')
+            if (error.response?.data) {
+                const { result, title } = error.response.data
+                alertRef.current?.show('Error', title || 'Error al actualizar producto', 'error')
+                if (result && Array.isArray(result) && result.length > 0) {
+                    const newFieldErrors = {
+                        stockCatalogueId: [],
+                        productStatusId: [],
+                        lote: [],
+                        loteProveedor: [],
+                        fabricante: [],
+                        distribuidor: [],
+                        fechaIngreso: [],
+                        fechaCaducidad: [],
+                        reanalisis: [],
+                    }
+                    result.forEach((validationError) => {
+                        const field = validationError.field
+                        const descriptions = validationError.descriptions || []
+                        if (newFieldErrors.hasOwnProperty(field)) {
+                            newFieldErrors[field] = descriptions
+                        }
+                    })
+                    setProductErrors(newFieldErrors)
+                }
+            } else {
+                alertRef.current?.show('Error', 'Error al actualizar producto', 'error')
+            }
         } finally {
             setIsSaving(false)
         }
@@ -1052,7 +1183,6 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
             productErrors.lote.length > 0 ||
             productErrors.fechaIngreso.length > 0 ||
             productErrors.fechaCaducidad.length > 0 ||
-            productErrors.reanalisis.length > 0 ||
             !editedProduct.stockCatalogueId ||
             !editedProduct.productStatusId ||
             !editedProduct.lote.trim() ||
@@ -1146,6 +1276,84 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                                         </TextField.Input>
                                         {productErrors.lote.length > 0 ? (
                                             <TextField.ErrorMessage>{productErrors.lote.join('\n')}</TextField.ErrorMessage>
+                                        ) : undefined}
+                                    </TextField>
+
+                                    {/* LOTE PROVEEDOR */}
+                                    <TextField isInvalid={productErrors.loteProveedor.length > 0}>
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <TextField.Label className="text-foreground font-medium">Lote proveedor (Opcional)</TextField.Label>
+                                            <Text className="text-muted-foreground text-xs">{editedProduct.loteProveedor.length} / 100</Text>
+                                        </View>
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: productErrors.loteProveedor.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: productErrors.loteProveedor.length > 0 ? colors.danger : colors.surface2,
+                                            }}
+                                            placeholder="Lote del proveedor"
+                                            value={editedProduct.loteProveedor}
+                                            onChangeText={(text) => handleInputChange('loteProveedor', text)}
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                            maxLength={100}
+                                        />
+                                        {productErrors.loteProveedor.length > 0 ? (
+                                            <TextField.ErrorMessage>{productErrors.loteProveedor.join('\n')}</TextField.ErrorMessage>
+                                        ) : undefined}
+                                    </TextField>
+
+                                    {/* FABRICANTE */}
+                                    <TextField isInvalid={productErrors.fabricante.length > 0}>
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <TextField.Label className="text-foreground font-medium">Fabricante (Opcional)</TextField.Label>
+                                            <Text className="text-muted-foreground text-xs">{editedProduct.fabricante.length} / 200</Text>
+                                        </View>
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: productErrors.fabricante.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: productErrors.fabricante.length > 0 ? colors.danger : colors.surface2,
+                                            }}
+                                            placeholder="Nombre del fabricante"
+                                            value={editedProduct.fabricante}
+                                            onChangeText={(text) => handleInputChange('fabricante', text)}
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                            maxLength={200}
+                                        />
+                                        {productErrors.fabricante.length > 0 ? (
+                                            <TextField.ErrorMessage>{productErrors.fabricante.join('\n')}</TextField.ErrorMessage>
+                                        ) : undefined}
+                                    </TextField>
+
+                                    {/* DISTRIBUIDOR */}
+                                    <TextField isInvalid={productErrors.distribuidor.length > 0}>
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <TextField.Label className="text-foreground font-medium">Distribuidor (Opcional)</TextField.Label>
+                                            <Text className="text-muted-foreground text-xs">{editedProduct.distribuidor.length} / 200</Text>
+                                        </View>
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: productErrors.distribuidor.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: productErrors.distribuidor.length > 0 ? colors.danger : colors.surface2,
+                                            }}
+                                            placeholder="Nombre del distribuidor"
+                                            value={editedProduct.distribuidor}
+                                            onChangeText={(text) => handleInputChange('distribuidor', text)}
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                            maxLength={200}
+                                        />
+                                        {productErrors.distribuidor.length > 0 ? (
+                                            <TextField.ErrorMessage>{productErrors.distribuidor.join('\n')}</TextField.ErrorMessage>
                                         ) : undefined}
                                     </TextField>
 
@@ -1282,18 +1490,24 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                                 <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Catálogos disponibles</Text>
                             </View>
                             <RadioGroup value={String(editedProduct.stockCatalogueId)} onValueChange={(val) => handleInputChange('stockCatalogueId', val)}>
-                                {catalogues.map((cat) => (
-                                    <RadioGroup.Item
-                                        key={cat.id}
-                                        value={String(cat.id)}
-                                        className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
-                                    >
-                                        <View className="flex-1">
-                                            <RadioGroup.Title className="text-foreground font-medium text-lg">{cat.name}</RadioGroup.Title>
-                                        </View>
-                                        <RadioGroup.Indicator />
-                                    </RadioGroup.Item>
-                                ))}
+                                {Array.isArray(catalogues) && catalogues.length > 0 ? (
+                                    catalogues.map((cat) => (
+                                        <RadioGroup.Item
+                                            key={cat.id}
+                                            value={String(cat.id)}
+                                            className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
+                                        >
+                                            <View className="flex-1">
+                                                <RadioGroup.Title className="text-foreground font-medium text-lg">{cat.name}</RadioGroup.Title>
+                                            </View>
+                                            <RadioGroup.Indicator />
+                                        </RadioGroup.Item>
+                                    ))
+                                ) : (
+                                    <View className="p-4 items-center">
+                                        <Text className="text-muted-foreground">No hay catálogos disponibles</Text>
+                                    </View>
+                                )}
                             </RadioGroup>
                         </View>
                     </ScrollView>
@@ -1452,12 +1666,14 @@ const ProductDetailsModalContent = ({ modalRef, product, onEdit, alertRef, catal
     const onClose = () => modalRef.current?.close()
 
     const getCatalogueName = (id) => {
-        const cat = catalogues.find((c) => c.id === id)
+        if (!id) return 'Sin catálogo'
+        const cat = catalogues.find((c) => c.id === Number(id))
         return cat ? cat.name : 'Sin catálogo'
     }
 
     const getStatusName = (id) => {
-        const status = statuses.find((s) => s.id === id)
+        if (!id) return 'Sin estado'
+        const status = statuses.find((s) => s.id === Number(id))
         return status ? status.name : 'Sin estado'
     }
 
@@ -1642,9 +1858,12 @@ const ProductsScreen = () => {
 
             // Obtener catálogos
             const cataloguesResponse = await getStockCatalogues()
-            const cataloguesList = cataloguesResponse?.data?.content || []
+            // El backend devuelve ResponseObject con data que contiene la lista directamente
+            const cataloguesList = Array.isArray(cataloguesResponse?.data) ? cataloguesResponse.data : []
+            // Filtrar solo catálogos activos (status === true)
+            const activeCatalogues = cataloguesList.filter((cat) => cat.status === true)
 
-            setCatalogues(cataloguesList)
+            setCatalogues(activeCatalogues)
 
             // Obtener estados
             const statusesResponse = await getProductStatuses()
@@ -1724,14 +1943,17 @@ const ProductsScreen = () => {
     }, [page, filteredAndSortedItems, rowsPerPage])
 
     // Función helper para obtener nombre del catálogo
+    // Función helper para obtener nombre del catálogo
     const getCatalogueName = (id) => {
-        const cat = catalogues.find((c) => c.id === id)
+        if (!id) return 'Sin catálogo'
+        const cat = catalogues.find((c) => c.id === Number(id))
         return cat ? cat.name : 'Sin catálogo'
     }
 
     // Función helper para obtener nombre del estado
     const getStatusName = (id) => {
-        const status = statuses.find((s) => s.id === id)
+        if (!id) return 'Sin estado'
+        const status = statuses.find((s) => s.id === Number(id))
         return status ? status.name : 'Sin estado'
     }
 

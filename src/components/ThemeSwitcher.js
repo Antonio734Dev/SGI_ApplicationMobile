@@ -4,11 +4,13 @@ import { StatusBar } from 'expo-status-bar'
 import { useState } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated'
+import { useThemeContext } from '../contexts/ThemeContext'
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const ThemeSwitcher = () => {
-    const { toggleTheme, isDark, colors } = useTheme()
+    const { colors } = useTheme()
+    const { toggleTheme, isDark } = useThemeContext()
     const [showOverlay, setShowOverlay] = useState(false)
     const [isAnimating, setIsAnimating] = useState(false)
 
@@ -47,8 +49,8 @@ const ThemeSwitcher = () => {
                     <Animated.View style={animatedStyle}>
                         <Ionicons
                             name={isDark ? 'moon' : 'sunny'} // Icono actual basado en el tema
-                            size={20} // Tamaño del icono
-                            color={colors.accent} // Color basado en el tema
+                            size={24} // Tamaño del icono
+                            color={colors.foreground} // Color basado en el tema
                         />
                     </Animated.View>
                 </View>

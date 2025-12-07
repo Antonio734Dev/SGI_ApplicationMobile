@@ -1,8 +1,11 @@
 import './global.css'
 import RootNavigator from './src/navigations/RootNavigator'
-import { HeroUINativeProvider, Spinner, useTheme } from 'heroui-native'
+import { HeroUINativeProvider, Spinner } from 'heroui-native'
 import { AuthProvider } from './src/contexts/AuthContext'
+import { ThemeProvider, useThemeContext } from './src/contexts/ThemeContext'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { useEffect } from 'react'
+import { useColorScheme } from 'nativewind'
 
 import {
     useFonts,
@@ -14,8 +17,15 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { View } from 'react-native'
 
-export default function App() {
-    const { colors } = useTheme()
+// Componente interno que usa el contexto de tema
+const AppContent = () => {
+    const { effectiveTheme, isLoading: themeLoading, isDark } = useThemeContext()
+    const { setColorScheme } = useColorScheme()
+
+    // Sincronizar NativeWind con el tema efectivo
+    useEffect(() => {
+        setColorScheme(effectiveTheme)
+    }, [effectiveTheme, setColorScheme])
 
     let [fontsLoaded] = useFonts({
         PlusJakartaSans_400Regular,
@@ -24,20 +34,20 @@ export default function App() {
         PlusJakartaSans_700Bold,
     })
 
-    if (!fontsLoaded) {
+    if (!fontsLoaded || themeLoading) {
         return (
-            <View className="flex-1 justify-center items-center">
-                <Spinner color={colors.foreground} size="md" />
+            <View className={`flex-1 justify-center items-center bg-background ${isDark ? 'dark' : ''}`}>
+                <Spinner size="md" />
             </View>
         )
     }
 
     return (
         <SafeAreaProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
+            <GestureHandlerRootView style={{ flex: 1 }} className={isDark ? 'dark' : ''}>
                 <HeroUINativeProvider
                     config={{
-                        colorScheme: 'system',
+                        colorScheme: effectiveTheme,
                         theme: {
                             // ---------
                             // LIGHT MODE - Pure White Base (INTACTO)
@@ -143,5 +153,14 @@ export default function App() {
                 </HeroUINativeProvider>
             </GestureHandlerRootView>
         </SafeAreaProvider>
+    )
+}
+
+// Componente principal que envuelve con ThemeProvider
+export default function App() {
+    return (
+        <ThemeProvider>
+            <AppContent />
+        </ThemeProvider>
     )
 }

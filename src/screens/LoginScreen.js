@@ -10,8 +10,8 @@ import { required, validEmail, validPassword } from '../utils/validators'
 
 const LoginScreen = () => {
     const [isLoading, setIsLoading] = useState(false)
-    const [isVisible, setIsVisible] = useState(false) // Para mostrar/ocultar contraseña
-    const { login } = useAuth() // Usamos el hook
+    const [isVisible, setIsVisible] = useState(false)
+    const { login } = useAuth()
     const { colors } = useTheme()
 
     const [isRefreshing, setIsRefreshing] = useState(false)
@@ -42,44 +42,37 @@ const LoginScreen = () => {
         const errs = runValidators(value, fns)
         setFieldErrors((prev) => ({ ...prev, [field]: errs }))
 
-        // Limpiamos el error de envío si el usuario empieza a corregir
         if (submitError) {
             setSubmitError('')
         }
     }
 
     const hasFormErrors = () => {
-        // Comprobar errores de validación en tiempo real
         if (fieldErrors.email.length > 0 || fieldErrors.password.length > 0) {
             return true
         }
-        // Comprobar campos vacíos (para deshabilitar el botón inicialmente)
         if (formData.email.trim() === '' || formData.password.trim() === '') {
             return true
         }
         return false
     }
 
-    // Alterna la visibilidad de la contraseña
     const toggleVisibility = () => setIsVisible(!isVisible)
 
     const onRefresh = useCallback(() => {
-        setIsRefreshing(true) // Muestra el spinner
-
-        // Reseteamos todo el estado del formulario
+        setIsRefreshing(true)
         setFormData({ email: '', password: '' })
         setFieldErrors({ email: [], password: [] })
         setSubmitError('')
         setIsLoading(false)
         setIsVisible(false)
 
-        // Ocultamos el spinner de recarga después de 1 seg
         setTimeout(() => {
             setIsRefreshing(false)
         }, 1000)
-    }, []) // Dependencias vacías
+    }, [])
+
     const handleLogin = async () => {
-        // --- Validación antes de enviar ---
         const emailErrs = runValidators(formData.email, validators.email)
         const passwordErrs = runValidators(formData.password, validators.password)
 
@@ -89,7 +82,6 @@ const LoginScreen = () => {
             return
         }
 
-        // Limpiar estados antes de enviar
         setFieldErrors({ email: [], password: [] })
         setSubmitError('')
 
@@ -99,71 +91,67 @@ const LoginScreen = () => {
         } catch (e) {
             console.error(e)
             console.log(e)
-            // IMPORTANTE: Verificar primero si hay response.data (respuesta del backend)
             if (e.response?.data) {
                 const { result, title, description } = e.response.data
-
-                // 1. Establecer el mensaje general (SOLO title, no description)
                 setSubmitError(title || 'Error al iniciar sesión.')
 
-                // 2. Procesar errores específicos de campo si existen
                 if (result && Array.isArray(result) && result.length > 0) {
                     const newFieldErrors = { email: [], password: [] }
-
                     result.forEach((validationError) => {
                         const field = validationError.field
                         const descriptions = validationError.descriptions || []
-
                         if (newFieldErrors.hasOwnProperty(field)) {
                             newFieldErrors[field] = descriptions
                         }
                     })
-
                     setFieldErrors(newFieldErrors)
                 }
             } else {
-                // Solo si NO hay response.data, usar e.message o mensaje genérico
                 setSubmitError('No se pudo conectar con el servidor.')
             }
         } finally {
             setIsLoading(false)
         }
     }
+
     return (
         <SafeAreaView className="flex-1 bg-background">
             <KeyboardAwareScrollView
                 contentContainerStyle={{
                     flexGrow: 1,
-                    alignItems: 'center',
                 }}
                 keyboardShouldPersistTaps="handled"
                 enableOnAndroid={true}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={isRefreshing}
-                        onRefresh={onRefresh}
-                        colors={[colors.accent]} // Android
-                        tintColor={colors.accent} // iOS
-                    />
-                }
+                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.accent]} tintColor={colors.accent} />}
             >
-                <View className="px-[12%] py-[12%] flex flex-col justify-between h-full gap-12">
-                    <View>
-                        <Text className="font-bold text-[32px] pb-4 text-foreground">¡Bienvenido!</Text>
-                        <Text className="font-normal text-base pb-10 text-foreground">
-                            Por favor, proporcione sus credenciales para ingresar a la aplicación.
-                        </Text>
+                <View className="flex-1 px-[6%] justify-center py-[6%]">
+                    {/* Header Top-Right */}
+                    <View className="absolute top-[6%] right-[6%] z-10">
+                        <ThemeSwitcher />
+                    </View>
 
-                        {submitError ? (
-                            <View className="mb-10 flex flex-row items-center rounded-sm gap-3">
-                                <Ionicons name="close-circle" size={24} color={colors.danger} />
-                                <Text className="font-medium" style={{ color: colors.danger }}>
-                                    {submitError}
-                                </Text>
-                            </View>
-                        ) : null}
+                    {/* Header Logo & Title */}
+                    <View className="items-center mb-10">
+                        <View className="w-16 h-16 items-center justify-center mb-6">
+                            <Ionicons name="cube-outline" size={32} color={colors.accent} />
+                        </View>
+                        <Text className="font-bold text-[32px] text-foreground text-center mb-2">¡Bienvenido!</Text>
+                        <Text className="text-base text-center text-muted-foreground px-4">Inicia sesión para continuar</Text>
+                    </View>
 
-                        <TextField isRequired className="pb-8" isInvalid={fieldErrors.email.length > 0}>
+                    {/* Error General */}
+                    {submitError ? (
+                        <View className="mb-8 p-4 flex-row items-center rounded-xl border border-danger/20" style={{ backgroundColor: colors.danger + '10' }}>
+                            <Ionicons name="alert-circle-outline" size={24} color={colors.danger} />
+                            <Text className="font-medium ml-3 flex-1" style={{ color: colors.danger }}>
+                                {submitError}
+                            </Text>
+                        </View>
+                    ) : null}
+
+                    {/* Formulario */}
+                    <View className="gap-8">
+                        <TextField isRequired isInvalid={fieldErrors.email.length > 0}>
                             <TextField.Label classNames={{ asterisk: 'text-danger' }}>Correo electrónico</TextField.Label>
                             <TextField.Input
                                 colors={{
@@ -172,8 +160,7 @@ const LoginScreen = () => {
                                     blurBorder: colors.accentSoft,
                                     focusBorder: colors.surface2,
                                 }}
-                                className="rounded-sm"
-                                placeholder="Ingrese su correo electrónico"
+                                placeholder="ejemplo@correo.com"
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 value={formData.email}
@@ -182,9 +169,10 @@ const LoginScreen = () => {
                                 selectionHandleColor={colors.accent}
                                 selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
                             />
-                            {fieldErrors.email.length > 0 ? <TextField.ErrorMessage>{fieldErrors.email.join('\n')}</TextField.ErrorMessage> : undefined}
+                            {fieldErrors.email.length > 0 && <TextField.ErrorMessage>{fieldErrors.email.join('\n')}</TextField.ErrorMessage>}
                         </TextField>
-                        <TextField isRequired className="pb-10" isInvalid={fieldErrors.password.length > 0}>
+
+                        <TextField isRequired isInvalid={fieldErrors.password.length > 0}>
                             <TextField.Label classNames={{ asterisk: 'text-danger' }}>Contraseña</TextField.Label>
                             <TextField.Input
                                 colors={{
@@ -193,14 +181,13 @@ const LoginScreen = () => {
                                     blurBorder: colors.accentSoft,
                                     focusBorder: colors.surface2,
                                 }}
-                                className="rounded-sm"
-                                placeholder="Ingrese su contraseña"
+                                placeholder="••••••••"
                                 value={formData.password}
                                 onChangeText={(value) => handleInputChange('password', value)}
                                 cursorColor={colors.accent}
                                 selectionHandleColor={colors.accent}
                                 selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                secureTextEntry={!isVisible} // Controlado por el estado
+                                secureTextEntry={!isVisible}
                             >
                                 <TextField.InputEndContent
                                     name="right"
@@ -208,21 +195,20 @@ const LoginScreen = () => {
                                         container: 'flex justify-center items-center pr-2',
                                     }}
                                 >
-                                    <Button onPress={toggleVisibility} className="rounded-sm bg-transparent" isIconOnly>
+                                    <Button onPress={toggleVisibility} className="bg-transparent" isIconOnly>
                                         <Ionicons
-                                            name={isVisible ? 'eye-off' : 'eye'}
-                                            size={24}
-                                            color={fieldErrors.password.length > 0 ? colors.danger : colors.accent}
+                                            name={isVisible ? 'eye-off-outline' : 'eye-outline'}
+                                            size={22}
+                                            color={fieldErrors.password.length > 0 ? colors.danger : colors.mutedForeground}
                                         />
                                     </Button>
                                 </TextField.InputEndContent>
                             </TextField.Input>
-                            {/* Mensajes de error para contraseña */}
-                            {fieldErrors.password.length > 0 ? <TextField.ErrorMessage>{fieldErrors.password.join('\n')}</TextField.ErrorMessage> : undefined}
+                            {fieldErrors.password.length > 0 && <TextField.ErrorMessage>{fieldErrors.password.join('\n')}</TextField.ErrorMessage>}
                         </TextField>
 
-                        <View className="flex gap-4">
-                            <Button onPress={handleLogin} isDisabled={hasFormErrors() || isLoading}>
+                        <View className="mt-4">
+                            <Button onPress={handleLogin} isDisabled={hasFormErrors() || isLoading} className="h-12 shadow-sm">
                                 {isLoading ? (
                                     <>
                                         <Spinner color={colors.accentForeground} size="md" />
@@ -230,15 +216,19 @@ const LoginScreen = () => {
                                     </>
                                 ) : (
                                     <>
-                                        <Ionicons name="log-in" size={24} color={colors.accentForeground} />
+                                        <Ionicons name="log-in-outline" size={24} color={colors.accentForeground} />
                                         <Button.Label>Ingresar</Button.Label>
                                     </>
                                 )}
                             </Button>
                         </View>
                     </View>
-                    <View>
-                        <Text className="text-[14px] text-center font-semibold">Footer</Text>
+
+                    {/* Footer */}
+                    <View className="mt-12 items-center">
+                        <Text style={{ color: colors.mutedForeground }} className="text-xs">
+                            © 2025
+                        </Text>
                     </View>
                 </View>
             </KeyboardAwareScrollView>

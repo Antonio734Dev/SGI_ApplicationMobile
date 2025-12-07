@@ -15,6 +15,15 @@ const { height } = Dimensions.get('window')
 const MODAL_MAX_HEIGHT = height * 0.75
 const OVERLAY_STYLE = { backgroundColor: 'rgba(0, 0, 0, 0.4)' } // Oscurecí un poco más el fondo (0.4) para mejor contraste
 
+const InfoRow = ({ label, value, valueClassName = '' }) => (
+    <View className="flex-row items-start justify-between">
+        <Text className="text-[14px] text-muted-foreground w-24 pt-0.5">{label}</Text>
+        <Text className={`text-[14px] text-right flex-1 font-medium ${valueClassName ? valueClassName : 'text-foreground'}`} numberOfLines={2}>
+            {value}
+        </Text>
+    </View>
+)
+
 // NUEVA CONFIGURACIÓN DE ANIMACIÓN
 const MODAL_ANIMATION_PROPS = {
     // Hace que la animación de entrada dure 450ms (se nota más y es suave)
@@ -191,53 +200,64 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, statusFilter
                         </View>
                         <Text className="text-muted-foreground">Ordena y filtra tus resultados</Text>
                     </View>
-                    <View className="gap-6 pb-4">
+                    <View className="gap-6">
+                        {/* ORDENAR POR */}
                         <View>
-                            <View className="bg-surface-1 rounded-lg p-2 mb-2">
-                                <Text className="text-[12px] font-semibold text-muted-foreground">Ordenar por</Text>
+                            <View className="mb-0">
+                                <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Ordenar por</Text>
                             </View>
                             <RadioGroup value={sortOption.value} onValueChange={handleSortChange}>
                                 {sortOptions.map((opt) => (
                                     <RadioGroup.Item
                                         key={opt.value}
                                         value={opt.value}
-                                        className="flex-row justify-between items-center h-14 pr-4 border-b border-surface-2"
+                                        className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
                                     >
-                                        <RadioGroup.Title className="text-foreground">{opt.label}</RadioGroup.Title>
+                                        <View className="flex-1">
+                                            <RadioGroup.Title className="text-foreground font-medium text-lg">{opt.label}</RadioGroup.Title>
+                                        </View>
                                         <RadioGroup.Indicator />
                                     </RadioGroup.Item>
                                 ))}
                             </RadioGroup>
                         </View>
+
+                        {/* FILTRAR POR ESTADO */}
                         <View>
-                            <View className="bg-surface-1 rounded-lg p-2 mb-2">
-                                <Text className="text-[12px] font-semibold text-muted-foreground">Filtrar por estado</Text>
+                            <View className="mb-0">
+                                <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Filtrar por estado</Text>
                             </View>
                             <RadioGroup value={statusFilter} onValueChange={handleStatusChange}>
                                 {statusOptions.map((opt) => (
                                     <RadioGroup.Item
                                         key={opt.value}
                                         value={opt.value}
-                                        className="flex-row justify-between items-center h-14 pr-4 border-b border-surface-2"
+                                        className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
                                     >
-                                        <RadioGroup.Title className="text-foreground">{opt.label}</RadioGroup.Title>
+                                        <View className="flex-1">
+                                            <RadioGroup.Title className="text-foreground font-medium text-lg">{opt.label}</RadioGroup.Title>
+                                        </View>
                                         <RadioGroup.Indicator />
                                     </RadioGroup.Item>
                                 ))}
                             </RadioGroup>
                         </View>
+
+                        {/* FILAS POR PÁGINA */}
                         <View>
-                            <View className="bg-surface-1 rounded-lg p-2 mb-2">
-                                <Text className="text-[12px] font-semibold text-muted-foreground">Filas por página</Text>
+                            <View className="mb-0">
+                                <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Filas por página</Text>
                             </View>
                             <RadioGroup value={rowsPerPage} onValueChange={handleRowsChange}>
                                 {rowsOptions.map((opt) => (
                                     <RadioGroup.Item
                                         key={opt.value}
                                         value={opt.value}
-                                        className="flex-row justify-between items-center h-14 pr-4 border-b border-surface-2"
+                                        className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
                                     >
-                                        <RadioGroup.Title className="text-foreground">{opt.label}</RadioGroup.Title>
+                                        <View className="flex-1">
+                                            <RadioGroup.Title className="text-foreground font-medium text-lg">{opt.label}</RadioGroup.Title>
+                                        </View>
                                         <RadioGroup.Indicator />
                                     </RadioGroup.Item>
                                 ))}
@@ -621,18 +641,27 @@ const EditUserModalContent = ({ modalRef, user, onUserUpdated, alertRef }) => {
                         </View>
                         <Text className="text-muted-foreground">Seleccione el rol nuevo que se asignará al usuario</Text>
                     </View>
-                    <RadioGroup value={String(editedUser.roleId)} onValueChange={(val) => selectRole(val)}>
-                        {ROLE_OPTIONS.map((role) => (
-                            <RadioGroup.Item
-                                key={role.value}
-                                value={role.value}
-                                className="flex-row justify-between items-center h-14 pr-4 border-b border-surface-2"
-                            >
-                                <RadioGroup.Title className="text-foreground">{role.label}</RadioGroup.Title>
-                                <RadioGroup.Indicator />
-                            </RadioGroup.Item>
-                        ))}
-                    </RadioGroup>
+                    <ScrollView style={{ maxHeight: height * 0.5 }} showsVerticalScrollIndicator={false}>
+                        <View>
+                            <View className="mb-0">
+                                <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Roles disponibles</Text>
+                            </View>
+                            <RadioGroup value={String(editedUser.roleId)} onValueChange={(val) => selectRole(val)}>
+                                {ROLE_OPTIONS.map((role) => (
+                                    <RadioGroup.Item
+                                        key={role.value}
+                                        value={role.value}
+                                        className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
+                                    >
+                                        <View className="flex-1">
+                                            <RadioGroup.Title className="text-foreground font-medium text-lg">{role.label}</RadioGroup.Title>
+                                        </View>
+                                        <RadioGroup.Indicator />
+                                    </RadioGroup.Item>
+                                ))}
+                            </RadioGroup>
+                        </View>
+                    </ScrollView>
                 </View>
             </Modalize>
         </>
@@ -978,18 +1007,27 @@ const CreateUserModalContent = ({ modalRef, onUserCreated, isLoading, alertRef }
                         </View>
                         <Text className="text-muted-foreground">Seleccione el rol que se asignará al nuevo usuario</Text>
                     </View>
-                    <RadioGroup value={String(newUser.roleId)} onValueChange={(val) => selectRole(val)}>
-                        {ROLE_OPTIONS.map((role) => (
-                            <RadioGroup.Item
-                                key={role.value}
-                                value={role.value}
-                                className="flex-row justify-between items-center h-14 pr-4 border-b border-surface-2"
-                            >
-                                <RadioGroup.Title className="text-foreground">{role.label}</RadioGroup.Title>
-                                <RadioGroup.Indicator />
-                            </RadioGroup.Item>
-                        ))}
-                    </RadioGroup>
+                    <ScrollView style={{ maxHeight: height * 0.5 }} showsVerticalScrollIndicator={false}>
+                        <View>
+                            <View className="mb-0">
+                                <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Roles disponibles</Text>
+                            </View>
+                            <RadioGroup value={String(newUser.roleId)} onValueChange={(val) => selectRole(val)}>
+                                {ROLE_OPTIONS.map((role) => (
+                                    <RadioGroup.Item
+                                        key={role.value}
+                                        value={role.value}
+                                        className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
+                                    >
+                                        <View className="flex-1">
+                                            <RadioGroup.Title className="text-foreground font-medium text-lg">{role.label}</RadioGroup.Title>
+                                        </View>
+                                        <RadioGroup.Indicator />
+                                    </RadioGroup.Item>
+                                ))}
+                            </RadioGroup>
+                        </View>
+                    </ScrollView>
                 </View>
             </Modalize>
         </>
@@ -1192,16 +1230,22 @@ const UsersScreen = () => {
             <ScrollableLayout onRefresh={fetchData}>
                 <View className="p-[6%] min-h-full">
                     <View className="flex flex-col w-full justify-between shrink-0 gap-4 items-end">
-                        <View className="w-full flex flex-row justify-between items-end">
+                        <View className="w-full flex flex-row justify-between items-center">
                             <View className="flex flex-row items-center justify-center gap-2">
                                 <BackButton />
                                 <Text className="font-bold text-[32px] text-foreground">Usuarios</Text>
                             </View>
-                            <View className="flex flex-row gap-2 items-center">
-                                <Button isIconOnly className="bg-transparent shrink-0" isDisabled={isLoading} onPress={openFilterModal}>
+                            <View className="flex flex-row gap-0 items-center">
+                                <Button isIconOnly className="size-12 bg-transparent shrink-0" isDisabled={isLoading} onPress={openFilterModal}>
                                     <Ionicons name="filter-outline" size={24} color={colors.foreground} />
                                 </Button>
-                                <Button isIconOnly className="font-semibold shrink-0" variant="primary" isDisabled={isLoading} onPress={openCreateModal}>
+                                <Button
+                                    isIconOnly
+                                    className="size-12 font-semibold shrink-0"
+                                    variant="primary"
+                                    isDisabled={isLoading}
+                                    onPress={openCreateModal}
+                                >
                                     <Ionicons name="add-outline" size={24} color={colors.accentForeground} />
                                 </Button>
                             </View>
@@ -1267,130 +1311,119 @@ const UsersScreen = () => {
                                             //onValueChange={setExpandedKeys}
                                         >
                                             {paginatedItems.map((item) => (
-                                                <Accordion.Item key={item.id} value={item.id} className="bg-accent-soft mb-2 rounded-lg overflow-hidden">
-                                                    <Accordion.Trigger className="w-full bg-accent-soft pl-4 pr-0 py-4">
+                                                <Accordion.Item
+                                                    key={item.id}
+                                                    value={item.id}
+                                                    className="bg-accent-soft mb-2 rounded-lg overflow-hidden border border-border/20"
+                                                >
+                                                    <Accordion.Trigger className="w-full bg-accent-soft pl-4 pr-0 py-2">
                                                         <View className="flex-row items-center justify-between w-full">
-                                                            <View className="flex-1 gap-1 pr-2">
-                                                                <View className="flex-row items-center gap-2">
-                                                                    <Ionicons
-                                                                        name={item.status === 'activo' ? 'person' : 'person-outline'}
-                                                                        size={14}
-                                                                        color={item.status === 'activo' ? colors.accent : colors.mutedForeground}
-                                                                    />
-                                                                    <Text className="text-foreground flex-shrink text-lg font-semibold" numberOfLines={1}>
-                                                                        {item.name}
-                                                                    </Text>
-                                                                </View>
+                                                            {/* TEXTOS */}
+                                                            <View className="flex-1 pr-2 justify-center py-1">
+                                                                <Text className="text-foreground font-medium text-lg mb-1" numberOfLines={1}>
+                                                                    {item.name}
+                                                                </Text>
                                                                 <Text className="text-muted-foreground text-[14px]" numberOfLines={1}>
                                                                     {item.email}
                                                                 </Text>
                                                             </View>
-                                                            <View className="flex flex-row items-center gap-2">
+
+                                                            {/* ACCIONES */}
+                                                            <View className="flex flex-row items-center gap-0">
                                                                 <TouchableOpacity
                                                                     onPress={() => openEditModal(item)}
-                                                                    className="h-14 w-14 flex items-center justify-center"
-                                                                    activeOpacity={0.7}
+                                                                    className="w-12 h-12 flex items-center justify-center rounded-full"
+                                                                    activeOpacity={0.6}
                                                                 >
-                                                                    <Ionicons name="create-outline" size={24} color={colors.foreground} />
+                                                                    <Ionicons name="create-outline" size={24} color={colors.accent} />
                                                                 </TouchableOpacity>
-                                                                <Accordion.Indicator
-                                                                    className="h-14 w-14 flex items-center justify-center"
-                                                                    iconProps={{
-                                                                        color: colors.accent,
-                                                                        size: 24,
-                                                                    }}
-                                                                />
+
+                                                                {/* Indicador también ajustado al área de toque */}
+                                                                <View className="w-12 h-12 flex items-center justify-center">
+                                                                    <Accordion.Indicator
+                                                                        iconProps={{
+                                                                            color: colors.accent,
+                                                                            size: 24,
+                                                                        }}
+                                                                    />
+                                                                </View>
                                                             </View>
                                                         </View>
                                                     </Accordion.Trigger>
                                                     <Accordion.Content className="bg-accent-soft px-4 pb-4">
-                                                        <View className="h-px bg-surface-3 mt-0 mb-4" />
-                                                        <View className="gap-3">
-                                                            <View className="gap-3">
-                                                                <View className="flex-row items-start justify-between">
-                                                                    <Text className="text-[14px] text-muted-foreground w-28 pt-0.5">Actualizado</Text>
-                                                                    <Text className="text-[14px] text-foreground text-right flex-1" numberOfLines={2}>
-                                                                        {formatDateLiteral(item.updatedAt, true)}
-                                                                    </Text>
-                                                                </View>
-                                                                <View className="flex-row items-start justify-between">
-                                                                    <Text className="text-[14px] text-muted-foreground w-28 pt-0.5">Puesto</Text>
-                                                                    <Text className="text-[14px] text-foreground text-right flex-1" numberOfLines={2}>
-                                                                        {item.position}
-                                                                    </Text>
-                                                                </View>
-                                                                <View className="flex-row items-start justify-between">
-                                                                    <Text className="text-[14px] text-muted-foreground w-28 pt-0.5">Rol</Text>
-                                                                    <Text className="text-[14px] text-foreground text-right flex-1" numberOfLines={2}>
-                                                                        {item.role}
-                                                                    </Text>
-                                                                </View>
-                                                                <View className="flex-row items-start justify-between">
-                                                                    <Text className="text-[14px] text-muted-foreground w-28 pt-0.5">Teléfono</Text>
-                                                                    <Text
-                                                                        className={`text-[14px] text-right flex-1 ${
-                                                                            item.phone ? 'text-foreground' : 'text-muted-foreground italic'
-                                                                        }`}
-                                                                        numberOfLines={2}
+                                                        {/* Separador sutil */}
+                                                        <View className="h-px bg-border/30 mt-0 mb-3" />
+
+                                                        {/* Lista de datos con gap reducido (compacto) */}
+                                                        <View className="gap-2">
+                                                            <InfoRow label="Puesto" value={item.position} />
+                                                            <InfoRow label="Rol" value={item.role} />
+                                                            <InfoRow
+                                                                label="Teléfono"
+                                                                value={item.phone || 'No especificado'}
+                                                                valueClassName={item.phone ? '' : 'text-muted-foreground italic'}
+                                                            />
+                                                            <InfoRow label="Estado" value={item.status} />
+                                                            <InfoRow label="Actualizado" value={formatDateLiteral(item.updatedAt, true)} />
+                                                        </View>
+
+                                                        {/* Switch de estado */}
+                                                        <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-border/30">
+                                                            <Text className="text-[14px] text-muted-foreground">Cambiar estado</Text>
+                                                            <TouchableOpacity onPress={() => openStatusModal(item)} activeOpacity={0.8}>
+                                                                <View pointerEvents="none">
+                                                                    <Switch
+                                                                        isSelected={item.status === 'activo'}
+                                                                        colors={{
+                                                                            defaultBackground: colors.surface3,
+                                                                            selectedBackground: colors.accent,
+                                                                            defaultBorder: 'transparent',
+                                                                            selectedBorder: 'transparent',
+                                                                        }}
                                                                     >
-                                                                        {item.phone || 'No especificado'}
-                                                                    </Text>
-                                                                </View>
-                                                            </View>
-                                                            <View className="flex-row items-center justify-between mt-2">
-                                                                <Text className="text-[14px] text-muted-foreground">Estado</Text>
-                                                                <TouchableOpacity onPress={() => openStatusModal(item)} activeOpacity={0.8}>
-                                                                    <View pointerEvents="none">
-                                                                        <Switch
-                                                                            isSelected={item.status === 'activo'}
+                                                                        <Switch.Thumb
                                                                             colors={{
-                                                                                defaultBackground: colors.surface3,
-                                                                                selectedBackground: colors.accent,
-                                                                                defaultBorder: 'transparent',
-                                                                                selectedBorder: 'transparent',
+                                                                                defaultBackground: colors.background,
+                                                                                selectedBackground: colors.accentForeground,
                                                                             }}
-                                                                        >
-                                                                            <Switch.Thumb
-                                                                                colors={{
-                                                                                    defaultBackground: colors.background,
-                                                                                    selectedBackground: colors.accentForeground,
-                                                                                }}
-                                                                            />
-                                                                        </Switch>
-                                                                    </View>
-                                                                </TouchableOpacity>
-                                                            </View>
+                                                                        />
+                                                                    </Switch>
+                                                                </View>
+                                                            </TouchableOpacity>
                                                         </View>
                                                     </Accordion.Content>
                                                 </Accordion.Item>
                                             ))}
                                         </Accordion>
-                                        <View className="items-end mt-2">
-                                            <View className="flex-row items-center justify-between rounded-lg">
-                                                <Button
-                                                    isIconOnly
-                                                    className="bg-transparent"
-                                                    isDisabled={page === 1}
-                                                    onPress={() => setPage((p) => Math.max(1, p - 1))}
-                                                >
-                                                    <Ionicons name="chevron-back-outline" size={24} color={page === 1 ? colors.muted : colors.accent} />
-                                                    <Text className="text-foreground">{page}</Text>
-                                                </Button>
-                                                <Button
-                                                    isIconOnly
-                                                    className="bg-transparent"
-                                                    isDisabled={page === pages || pages === 0}
-                                                    onPress={() => setPage((p) => Math.min(pages, p + 1))}
-                                                >
-                                                    <Text className="text-muted-foreground">/ {pages || 1}</Text>
-                                                    <Ionicons
-                                                        name="chevron-forward-outline"
-                                                        size={24}
-                                                        color={page === pages || pages === 0 ? colors.muted : colors.accent}
-                                                    />
-                                                </Button>
+                                        {/* Paginación */}
+                                        {pages > 1 && (
+                                            <View className="items-end mt-2">
+                                                <View className="flex-row items-center justify-between rounded-lg">
+                                                    <Button
+                                                        isIconOnly
+                                                        className="bg-transparent"
+                                                        isDisabled={page === 1}
+                                                        onPress={() => setPage((p) => Math.max(1, p - 1))}
+                                                    >
+                                                        <Ionicons name="chevron-back-outline" size={24} color={page === 1 ? colors.muted : colors.accent} />
+                                                        <Text className="text-foreground">{page}</Text>
+                                                    </Button>
+                                                    <Button
+                                                        isIconOnly
+                                                        className="bg-transparent"
+                                                        isDisabled={page === pages || pages === 0}
+                                                        onPress={() => setPage((p) => Math.min(pages, p + 1))}
+                                                    >
+                                                        <Text className="text-muted-foreground">/ {pages || 1}</Text>
+                                                        <Ionicons
+                                                            name="chevron-forward-outline"
+                                                            size={24}
+                                                            color={page === pages || pages === 0 ? colors.muted : colors.accent}
+                                                        />
+                                                    </Button>
+                                                </View>
                                             </View>
-                                        </View>
+                                        )}
                                     </>
                                 ) : (
                                     <Text className="text-center mt-4 text-muted-foreground">No se encontraron usuarios.</Text>

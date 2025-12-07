@@ -7,7 +7,6 @@ import { Ionicons } from '@expo/vector-icons'
 import { Modalize } from 'react-native-modalize'
 import { ScrollView } from 'react-native-gesture-handler'
 import { required, onlyLetters, validEmail, validPhone, minLength } from '../../utils/validators'
-import BackButton from '../../components/BackButton'
 import { useAuth } from '../../contexts/AuthContext'
 import { LinearGradient } from 'expo-linear-gradient'
 import ThemeSwitcher from '../../components/ThemeSwitcher'
@@ -832,13 +831,18 @@ const ProfileScreen = () => {
                             {/* ... lógica de loading/profile ... */}
                             <View className="flex-row justify-between items-center mb-6">
                                 <Text className="font-bold text-[32px] text-foreground">Perfil</Text>
-                                <View className="flex-row gap-0">
+                                <View className="flex-row gap-0 items-center">
                                     <ThemeSwitcher />
-                                    <Button isIconOnly className="bg-transparent shrink-0" isDisabled={isLoading} onPress={openPasswordModal}>
+                                    <Button isIconOnly className="size-12 bg-transparent shrink-0" isDisabled={isLoading} onPress={openPasswordModal}>
                                         <Ionicons name="key-outline" size={24} color={colors.foreground} />
                                     </Button>
-
-                                    <Button isIconOnly className="font-semibold shrink-0" variant="primary" isDisabled={isLoading} onPress={openEditModal}>
+                                    <Button
+                                        isIconOnly
+                                        className="size-12 font-semibold shrink-0"
+                                        variant="primary"
+                                        isDisabled={isLoading}
+                                        onPress={openEditModal}
+                                    >
                                         <Ionicons name="create-outline" size={24} color={colors.accentForeground} />
                                     </Button>
                                 </View>
@@ -889,7 +893,7 @@ const ProfileScreen = () => {
                             {/* BOTÓN CERRAR SESIÓN */}
                             <Text className="text-[12px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Opciones</Text>
                             <View>
-                                <Button className="bg-accent-soft rounded-lg h-auto p-4 flex-row justify-start" onPress={logout}>
+                                <Button className="bg-danger/10 rounded-lg h-auto p-4 flex-row justify-start" onPress={logout}>
                                     <View className="h-12 w-12 items-center justify-center mr-4">
                                         <Ionicons name="log-out-outline" size={24} color={colors.danger} />
                                     </View>
@@ -920,18 +924,18 @@ const ProfileScreen = () => {
 // - Tiene sus bordes redondeados (rounded-lg)
 // - No tiene bordes inferiores (border-b eliminado)
 const ProfileCardItem = ({ icon, label, value, colors }) => (
-    <View className="flex-row items-center p-4 bg-accent-soft rounded-lg">
-        {/* Área 48x48, Icono 24, Sin fondo */}
-        <View className="h-12 w-12 items-center justify-center mr-4">
-            <Ionicons name={icon} size={24} color={colors.mutedForeground} />
+    <View className="flex-row items-center py-3">
+        {/* Solo padding vertical y borde sutil */}
+        {/* Icono: Sin caja contenedora, alineado con el texto */}
+        <View className="mr-4">
+            <Ionicons name={icon} size={22} color={colors.mutedForeground} />
         </View>
-
-        {/* Tipografía solicitada */}
         <View className="flex-1">
-            <Text className="text-foreground font-medium text-lg mb-1">{value || 'No especificado'}</Text>
-            <Text className="text-muted-foreground text-[14px]" numberOfLines={1}>
-                {label}
-            </Text>
+            {/* Value: Mantenemos el énfasis pero quitamos peso si es necesario */}
+            <Text className="text-foreground font-medium text-base mb-0.5">{value || 'No especificado'}</Text>
+
+            {/* Label: Más sutil */}
+            <Text className="text-muted-foreground text-xs uppercase tracking-wide opacity-70">{label}</Text>
         </View>
     </View>
 )

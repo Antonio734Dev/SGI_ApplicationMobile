@@ -8,6 +8,7 @@ import { formatDateLiteral } from '../../utils/utils'
 import { Modalize } from 'react-native-modalize'
 import { ScrollView } from 'react-native-gesture-handler'
 import { required } from '../../utils/validators'
+import BackButton from '../../components/BackButton'
 // Servicios
 import { getProductStatuses, createProductStatus, updateProductStatus, deleteProductStatus } from '../../services/product'
 const { height } = Dimensions.get('window')
@@ -24,6 +25,15 @@ const MODAL_ANIMATION_PROPS = {
     overlayStyle: OVERLAY_STYLE,
     handlePosition: 'inside',
 }
+
+const InfoRow = ({ label, value, valueClassName = '' }) => (
+    <View className="flex-row items-start justify-between">
+        <Text className="text-[14px] text-muted-foreground w-24 pt-0.5">{label}</Text>
+        <Text className={`text-[14px] text-right flex-1 font-medium ${valueClassName ? valueClassName : 'text-foreground'}`} numberOfLines={2}>
+            {value}
+        </Text>
+    </View>
+)
 // =====================================================================
 // CUSTOM ALERT (Reutilizado)
 // =====================================================================
@@ -121,29 +131,32 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, rowsPerPage,
                         </View>
                         <Text className="text-muted-foreground">Ordena y filtra tus resultados</Text>
                     </View>
-                    <View className="gap-6 pb-4">
+                    <View className="gap-6">
                         {/* ORDENAR POR */}
                         <View>
-                            <View className="bg-surface-1 rounded-lg p-2 mb-2">
-                                <Text className="text-[12px] font-semibold text-muted-foreground">Ordenar por</Text>
+                            <View className="mb-0">
+                                <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Ordenar por</Text>
                             </View>
                             <RadioGroup value={sortOption.value} onValueChange={handleSortChange}>
                                 {sortOptions.map((opt) => (
                                     <RadioGroup.Item
                                         key={opt.value}
                                         value={opt.value}
-                                        className="flex-row justify-between items-center h-14 pr-4 border-b border-surface-2"
+                                        className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
                                     >
-                                        <RadioGroup.Title className="text-foreground">{opt.label}</RadioGroup.Title>
+                                        <View className="flex-1">
+                                            <RadioGroup.Title className="text-foreground font-medium text-lg">{opt.label}</RadioGroup.Title>
+                                        </View>
                                         <RadioGroup.Indicator />
                                     </RadioGroup.Item>
                                 ))}
                             </RadioGroup>
                         </View>
+
                         {/* FILAS POR PÁGINA */}
                         <View>
-                            <View className="bg-surface-1 rounded-lg p-2 mb-2">
-                                <Text className="text-[12px] font-semibold text-muted-foreground">Filas por página</Text>
+                            <View className="mb-0">
+                                <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Filas por página</Text>
                             </View>
                             <RadioGroup
                                 value={rowsPerPage}
@@ -156,9 +169,11 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, rowsPerPage,
                                     <RadioGroup.Item
                                         key={opt.value}
                                         value={opt.value}
-                                        className="flex-row justify-between items-center h-14 pr-4 border-b border-surface-2"
+                                        className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
                                     >
-                                        <RadioGroup.Title className="text-foreground">{opt.label}</RadioGroup.Title>
+                                        <View className="flex-1">
+                                            <RadioGroup.Title className="text-foreground font-medium text-lg">{opt.label}</RadioGroup.Title>
+                                        </View>
                                         <RadioGroup.Indicator />
                                     </RadioGroup.Item>
                                 ))}
@@ -179,17 +194,14 @@ const CreateStatusModalContent = ({ modalRef, onStatusCreated, isLoading, alertR
     const [newStatus, setNewStatus] = useState({
         name: '',
         description: '',
-        color: '#3B82F6',
     })
     const [statusErrors, setStatusErrors] = useState({
         name: [],
         description: [],
-        color: [],
     })
     const validators = {
         name: [required],
         description: [],
-        color: [],
     }
     const runValidators = (value, fns) => fns.map((fn) => fn(value)).filter(Boolean)
     const handleInputChange = (field, value) => {
@@ -203,12 +215,10 @@ const CreateStatusModalContent = ({ modalRef, onStatusCreated, isLoading, alertR
         setNewStatus({
             name: '',
             description: '',
-            color: '#3B82F6',
         })
         setStatusErrors({
             name: [],
             description: [],
-            color: [],
         })
     }
     const handleCreate = async () => {
@@ -218,7 +228,6 @@ const CreateStatusModalContent = ({ modalRef, onStatusCreated, isLoading, alertR
             setStatusErrors({
                 name: nameErrs,
                 description: [],
-                color: [],
             })
             alertRef.current?.show('Atención', 'Por favor corrija los errores en el formulario.', 'warning')
             return
@@ -228,7 +237,6 @@ const CreateStatusModalContent = ({ modalRef, onStatusCreated, isLoading, alertR
             const statusData = {
                 name: newStatus.name.trim(),
                 description: newStatus.description.trim() || null,
-                color: newStatus.color.trim(),
             }
             await createProductStatus(statusData)
             onClose()
@@ -245,7 +253,6 @@ const CreateStatusModalContent = ({ modalRef, onStatusCreated, isLoading, alertR
                     const newFieldErrors = {
                         name: [],
                         description: [],
-                        color: [],
                     }
                     result.forEach((validationError) => {
                         const field = validationError.field
@@ -342,38 +349,6 @@ const CreateStatusModalContent = ({ modalRef, onStatusCreated, isLoading, alertR
                                 <TextField.ErrorMessage>{statusErrors.description.join('\n')}</TextField.ErrorMessage>
                             ) : undefined}
                         </TextField>
-                        {/* COLOR */}
-                        <TextField isInvalid={statusErrors.color.length > 0}>
-                            <TextField.Label className="text-foreground font-medium mb-2">Color (Hex)</TextField.Label>
-                            <View className="flex-row items-center gap-3">
-                                <View
-                                    style={{
-                                        width: 50,
-                                        height: 50,
-                                        borderRadius: 8,
-                                        backgroundColor: newStatus.color,
-                                        borderWidth: 2,
-                                        borderColor: colors.accentSoft,
-                                    }}
-                                />
-                                <TextField.Input
-                                    colors={{
-                                        blurBackground: colors.accentSoft,
-                                        focusBackground: colors.surface2,
-                                        blurBorder: statusErrors.color.length > 0 ? colors.danger : colors.accentSoft,
-                                        focusBorder: statusErrors.color.length > 0 ? colors.danger : colors.surface2,
-                                    }}
-                                    placeholder="#3B82F6"
-                                    value={newStatus.color}
-                                    onChangeText={(text) => handleInputChange('color', text)}
-                                    cursorColor={colors.accent}
-                                    selectionHandleColor={colors.accent}
-                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                    maxLength={7}
-                                />
-                            </View>
-                            {statusErrors.color.length > 0 ? <TextField.ErrorMessage>{statusErrors.color.join('\n')}</TextField.ErrorMessage> : undefined}
-                        </TextField>
                     </View>
                     <View className="flex-row justify-end gap-3 pt-8">
                         <Button className="flex-1" variant="primary" onPress={handleCreate} isDisabled={isLoading || isSaving || hasErrors()}>
@@ -405,17 +380,14 @@ const EditStatusModalContent = ({ modalRef, status, onStatusUpdated, alertRef })
         id: '',
         name: '',
         description: '',
-        color: '#3B82F6',
     })
     const [statusErrors, setStatusErrors] = useState({
         name: [],
         description: [],
-        color: [],
     })
     const validators = {
         name: [required],
         description: [],
-        color: [],
     }
     const runValidators = (value, fns) => fns.map((fn) => fn(value)).filter(Boolean)
     const handleInputChange = (field, value) => {
@@ -430,12 +402,10 @@ const EditStatusModalContent = ({ modalRef, status, onStatusUpdated, alertRef })
                 id: status.id,
                 name: status.name || '',
                 description: status.description || '',
-                color: status.color || '#3B82F6',
             })
             setStatusErrors({
                 name: [],
                 description: [],
-                color: [],
             })
         }
     }, [status])
@@ -447,7 +417,6 @@ const EditStatusModalContent = ({ modalRef, status, onStatusUpdated, alertRef })
             setStatusErrors({
                 name: nameErrs,
                 description: [],
-                color: [],
             })
             alertRef.current?.show('Atención', 'Por favor corrija los errores en el formulario.', 'warning')
             return
@@ -458,7 +427,6 @@ const EditStatusModalContent = ({ modalRef, status, onStatusUpdated, alertRef })
                 id: editedStatus.id,
                 name: editedStatus.name.trim(),
                 description: editedStatus.description.trim() || null,
-                color: editedStatus.color.trim(),
             }
             const response = await updateProductStatus(statusData)
             if (response.type === 'SUCCESS') {
@@ -479,7 +447,6 @@ const EditStatusModalContent = ({ modalRef, status, onStatusUpdated, alertRef })
                     const newFieldErrors = {
                         name: [],
                         description: [],
-                        color: [],
                     }
                     result.forEach((validationError) => {
                         const field = validationError.field
@@ -576,40 +543,6 @@ const EditStatusModalContent = ({ modalRef, status, onStatusUpdated, alertRef })
                                     />
                                     {statusErrors.description.length > 0 ? (
                                         <TextField.ErrorMessage>{statusErrors.description.join('\n')}</TextField.ErrorMessage>
-                                    ) : undefined}
-                                </TextField>
-                                {/* COLOR */}
-                                <TextField isInvalid={statusErrors.color.length > 0}>
-                                    <TextField.Label className="text-foreground font-medium mb-2">Color (Hex)</TextField.Label>
-                                    <View className="flex-row items-center gap-3">
-                                        <View
-                                            style={{
-                                                width: 50,
-                                                height: 50,
-                                                borderRadius: 8,
-                                                backgroundColor: editedStatus.color,
-                                                borderWidth: 2,
-                                                borderColor: colors.accentSoft,
-                                            }}
-                                        />
-                                        <TextField.Input
-                                            colors={{
-                                                blurBackground: colors.accentSoft,
-                                                focusBackground: colors.surface2,
-                                                blurBorder: statusErrors.color.length > 0 ? colors.danger : colors.accentSoft,
-                                                focusBorder: statusErrors.color.length > 0 ? colors.danger : colors.surface2,
-                                            }}
-                                            placeholder="#3B82F6"
-                                            value={editedStatus.color}
-                                            onChangeText={(text) => handleInputChange('color', text)}
-                                            cursorColor={colors.accent}
-                                            selectionHandleColor={colors.accent}
-                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                            maxLength={7}
-                                        />
-                                    </View>
-                                    {statusErrors.color.length > 0 ? (
-                                        <TextField.ErrorMessage>{statusErrors.color.join('\n')}</TextField.ErrorMessage>
                                     ) : undefined}
                                 </TextField>
                             </View>
@@ -751,7 +684,8 @@ const ProductStatusesScreen = () => {
         try {
             setIsLoading(true)
             const response = await getProductStatuses()
-            const list = Array.isArray(response?.data) ? response.data : response?.data?.content || []
+            // El backend devuelve ResponseObject con data que contiene la lista
+            const list = Array.isArray(response?.data) ? response.data : []
             setStatuses(list)
         } catch (err) {
             console.error('Error fetch:', err)
@@ -799,13 +733,22 @@ const ProductStatusesScreen = () => {
             <ScrollableLayout onRefresh={fetchData}>
                 <View className="p-[6%] min-h-full">
                     <View className="flex flex-col w-full justify-between shrink-0 gap-4 items-end">
-                        <View className="w-full flex flex-row justify-between items-end">
-                            <Text className="font-bold text-[32px] text-foreground">Estados</Text>
-                            <View className="flex flex-row gap-2 items-center">
-                                <Button isIconOnly className="bg-transparent shrink-0" isDisabled={isLoading} onPress={openFilterModal}>
+                        <View className="w-full flex flex-row justify-between items-center">
+                            <View className="flex flex-row items-center justify-center gap-2">
+                                <BackButton />
+                                <Text className="font-bold text-[32px] text-foreground">Estados</Text>
+                            </View>
+                            <View className="flex flex-row gap-0 items-center">
+                                <Button isIconOnly className="size-12 bg-transparent shrink-0" isDisabled={isLoading} onPress={openFilterModal}>
                                     <Ionicons name="filter-outline" size={24} color={colors.foreground} />
                                 </Button>
-                                <Button isIconOnly className="font-semibold shrink-0" variant="primary" isDisabled={isLoading} onPress={openCreateModal}>
+                                <Button
+                                    isIconOnly
+                                    className="size-12 font-semibold shrink-0"
+                                    variant="primary"
+                                    isDisabled={isLoading}
+                                    onPress={openCreateModal}
+                                >
                                     <Ionicons name="add-outline" size={24} color={colors.accentForeground} />
                                 </Button>
                             </View>
@@ -855,90 +798,62 @@ const ProductStatusesScreen = () => {
                                     <>
                                         <Accordion selectionMode="single" className="border-0" isDividerVisible={false}>
                                             {paginatedItems.map((item) => (
-                                                <Accordion.Item key={item.id} value={item.id} className="bg-accent-soft mb-2 rounded-lg overflow-hidden">
-                                                    <Accordion.Trigger className="w-full bg-accent-soft pl-4 pr-0 py-4">
+                                                <Accordion.Item
+                                                    key={item.id}
+                                                    value={item.id}
+                                                    className="bg-accent-soft mb-2 rounded-lg overflow-hidden border border-border/20"
+                                                >
+                                                    <Accordion.Trigger className="w-full bg-accent-soft pl-4 pr-0 py-2">
                                                         <View className="flex-row items-center justify-between w-full">
-                                                            <View className="flex-1 gap-1 pr-2">
-                                                                <View className="flex-row items-center gap-2">
-                                                                    <View
-                                                                        style={{
-                                                                            width: 16,
-                                                                            height: 16,
-                                                                            borderRadius: 4,
-                                                                            backgroundColor: item.color || '#3B82F6',
-                                                                        }}
-                                                                    />
-                                                                    <Text className="text-foreground flex-shrink text-lg font-semibold" numberOfLines={1}>
-                                                                        {item.name}
-                                                                    </Text>
-                                                                </View>
+                                                            {/* TEXTOS */}
+                                                            <View className="flex-1 pr-2 justify-center py-1">
+                                                                <Text className="text-foreground font-medium text-lg mb-1" numberOfLines={1}>
+                                                                    {item.name}
+                                                                </Text>
                                                                 {item.description && (
                                                                     <Text className="text-muted-foreground text-[14px]" numberOfLines={1}>
                                                                         {item.description}
                                                                     </Text>
                                                                 )}
                                                             </View>
-                                                            <View className="flex flex-row items-center gap-2">
-                                                                <TouchableOpacity
-                                                                    onPress={() => openEditModal(item)}
-                                                                    className="h-14 w-14 items-center justify-center"
-                                                                    activeOpacity={0.7}
-                                                                >
-                                                                    <Ionicons name="create-outline" size={22} color={colors.accent} />
-                                                                </TouchableOpacity>
+
+                                                            {/* ACCIONES */}
+                                                            <View className="flex flex-row items-center gap-0">
                                                                 <TouchableOpacity
                                                                     onPress={() => openDeleteModal(item)}
-                                                                    className="h-14 w-14 items-center justify-center"
-                                                                    activeOpacity={0.7}
+                                                                    className="w-12 h-12 flex items-center justify-center rounded-full"
+                                                                    activeOpacity={0.6}
                                                                 >
-                                                                    <Ionicons name="trash-outline" size={22} color={colors.danger} />
+                                                                    <Ionicons name="trash-outline" size={24} color={colors.accent} />
                                                                 </TouchableOpacity>
-                                                                <Accordion.Indicator
-                                                                    className="h-14 w-14 flex items-center justify-center"
-                                                                    iconProps={{
-                                                                        color: colors.accent,
-                                                                        size: 24,
-                                                                    }}
-                                                                />
+
+                                                                <TouchableOpacity
+                                                                    onPress={() => openEditModal(item)}
+                                                                    className="w-12 h-12 flex items-center justify-center rounded-full"
+                                                                    activeOpacity={0.6}
+                                                                >
+                                                                    <Ionicons name="create-outline" size={24} color={colors.accent} />
+                                                                </TouchableOpacity>
+                                                                {/* Indicador también ajustado al área de toque */}
+                                                                <View className="w-12 h-12 flex items-center justify-center">
+                                                                    <Accordion.Indicator
+                                                                        iconProps={{
+                                                                            color: colors.accent,
+                                                                            size: 24,
+                                                                        }}
+                                                                    />
+                                                                </View>
                                                             </View>
                                                         </View>
                                                     </Accordion.Trigger>
-                                                    <Accordion.Content className="bg-surface-1 px-4 py-4">
-                                                        <View className="gap-4">
-                                                            {/* Descripción */}
-                                                            {item.description && (
-                                                                <View className="gap-1">
-                                                                    <Text className="text-muted-foreground text-xs font-semibold uppercase">Descripción</Text>
-                                                                    <Text className="text-foreground">{item.description}</Text>
-                                                                </View>
-                                                            )}
-                                                            {/* Color */}
-                                                            <View className="gap-1">
-                                                                <Text className="text-muted-foreground text-xs font-semibold uppercase">Color</Text>
-                                                                <View className="flex-row items-center gap-2">
-                                                                    <View
-                                                                        style={{
-                                                                            width: 32,
-                                                                            height: 32,
-                                                                            borderRadius: 8,
-                                                                            backgroundColor: item.color || '#3B82F6',
-                                                                            borderWidth: 2,
-                                                                            borderColor: colors.accentSoft,
-                                                                        }}
-                                                                    />
-                                                                    <Text className="text-foreground font-mono">{item.color || '#3B82F6'}</Text>
-                                                                </View>
-                                                            </View>
-                                                            {/* Fecha de creación */}
-                                                            <View className="gap-1 pt-2 border-t border-surface-2">
-                                                                <Text className="text-muted-foreground text-xs font-semibold uppercase">Fecha de creación</Text>
-                                                                <View className="flex-row items-center gap-2">
-                                                                    <Ionicons name="calendar-outline" size={14} color={colors.muted} />
-                                                                    <Text className="text-muted-foreground text-sm">
-                                                                        {item.createdAt ? formatDateLiteral(item.createdAt) : 'N/A'}
-                                                                    </Text>
-                                                                </View>
-                                                            </View>
+                                                    <Accordion.Content className="bg-accent-soft px-4 pb-4">
+                                                        {/* Separador sutil */}
+                                                        <View className="h-px bg-border/30 mt-0 mb-3" />
+
+                                                        {/* Lista de datos con gap reducido (compacto) */}
+                                                        <View className="gap-2">
+                                                            {item.description && <InfoRow label="Descripción" value={item.description} />}
+                                                            <InfoRow label="Creado" value={item.createdAt ? formatDateLiteral(item.createdAt, true) : 'N/A'} />
                                                         </View>
                                                     </Accordion.Content>
                                                 </Accordion.Item>
@@ -946,38 +861,37 @@ const ProductStatusesScreen = () => {
                                         </Accordion>
                                         {/* Paginación */}
                                         {pages > 1 && (
-                                            <View className="flex-row justify-center items-center gap-2 mt-6">
-                                                <Button
-                                                    isIconOnly
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onPress={() => setPage((p) => Math.max(1, p - 1))}
-                                                    isDisabled={page === 1}
-                                                >
-                                                    <Ionicons name="chevron-back-outline" size={20} color={page === 1 ? colors.muted : colors.foreground} />
-                                                </Button>
-                                                <Text className="text-foreground font-medium">
-                                                    Página {page} de {pages}
-                                                </Text>
-                                                <Button
-                                                    isIconOnly
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onPress={() => setPage((p) => Math.min(pages, p + 1))}
-                                                    isDisabled={page === pages}
-                                                >
-                                                    <Ionicons
-                                                        name="chevron-forward-outline"
-                                                        size={20}
-                                                        color={page === pages ? colors.muted : colors.foreground}
-                                                    />
-                                                </Button>
+                                            <View className="items-end mt-2">
+                                                <View className="flex-row items-center justify-between rounded-lg">
+                                                    <Button
+                                                        isIconOnly
+                                                        className="bg-transparent"
+                                                        isDisabled={page === 1}
+                                                        onPress={() => setPage((p) => Math.max(1, p - 1))}
+                                                    >
+                                                        <Ionicons name="chevron-back-outline" size={24} color={page === 1 ? colors.muted : colors.accent} />
+                                                        <Text className="text-foreground">{page}</Text>
+                                                    </Button>
+                                                    <Button
+                                                        isIconOnly
+                                                        className="bg-transparent"
+                                                        isDisabled={page === pages || pages === 0}
+                                                        onPress={() => setPage((p) => Math.min(pages, p + 1))}
+                                                    >
+                                                        <Text className="text-muted-foreground">/ {pages || 1}</Text>
+                                                        <Ionicons
+                                                            name="chevron-forward-outline"
+                                                            size={24}
+                                                            color={page === pages || pages === 0 ? colors.muted : colors.accent}
+                                                        />
+                                                    </Button>
+                                                </View>
                                             </View>
                                         )}
                                     </>
                                 ) : (
                                     <View className="items-center justify-center py-12">
-                                        <Ionicons name="flag-outline" size={64} color={colors.muted} />
+                                        <Ionicons name="shield-outline" size={64} color={colors.muted} />
                                         <Text className="text-muted-foreground text-lg mt-4">No se encontraron estados</Text>
                                         <Text className="text-muted-foreground text-center mt-2 px-8">
                                             {searchValue ? 'Intente con otros términos de búsqueda' : 'Comience creando un nuevo estado'}

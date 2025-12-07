@@ -63,13 +63,12 @@ export const getQrCodeImage = async (hash) => {
 // ==================== CATÁLOGOS DE STOCK ====================
 
 // Obtener todos los catálogos de stock
-export const getStockCatalogues = async (page = 0, size = 100, search = '') => {
+// El backend solo acepta el parámetro 'search', no tiene paginación
+export const getStockCatalogues = async (search = '') => {
     try {
         const response = await api.get('/api/stock-catalogues', {
             params: {
-                page,
-                size,
-                search,
+                ...(search && { search }),
             },
         })
         return response.data
@@ -124,6 +123,21 @@ export const deleteStockCatalogue = async (id) => {
     }
 }
 
+// Cambiar estado del catálogo de stock (toggle)
+export const toggleStockCatalogueStatus = async (id) => {
+    try {
+        const response = await api.patch(`/api/stock-catalogues/${id}/toggle-status`)
+
+        if (response.status >= 200 && response.status < 300) {
+            return response.data
+        }
+        throw new Error(`Código de estado inesperado: ${response.status}`)
+    } catch (error) {
+        console.error('[toggleStockCatalogueStatus] Error:', error)
+        throw error
+    }
+}
+
 // Obtener catálogo de stock por ID
 export const getStockCatalogueById = async (id) => {
     try {
@@ -159,6 +173,21 @@ export const createProductStatus = async (statusData) => {
         throw new Error(`Código de estado inesperado: ${response.status}`)
     } catch (error) {
         console.error('[createProductStatus] Error:', error)
+        throw error
+    }
+}
+
+// Actualizar producto
+export const updateProduct = async (productData) => {
+    try {
+        const response = await api.put('/api/products', productData)
+
+        if (response.status >= 200 && response.status < 300) {
+            return response.data
+        }
+        throw new Error(`Código de estado inesperado: ${response.status}`)
+    } catch (error) {
+        console.error('[updateProduct] Error:', error)
         throw error
     }
 }

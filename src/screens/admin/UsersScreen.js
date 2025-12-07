@@ -9,11 +9,33 @@ import { formatDateLiteral } from '../../utils/utils'
 import { Modalize } from 'react-native-modalize'
 import { ScrollView } from 'react-native-gesture-handler'
 import { required, onlyLetters, validEmail, validPhone, validRoleId } from '../../utils/validators'
+import BackButton from '../../components/BackButton'
 
 const { height } = Dimensions.get('window')
 const MODAL_MAX_HEIGHT = height * 0.75
-const OVERLAY_STYLE = { backgroundColor: 'rgba(0, 0, 0, 0.2)' }
+const OVERLAY_STYLE = { backgroundColor: 'rgba(0, 0, 0, 0.4)' } // Oscurecí un poco más el fondo (0.4) para mejor contraste
 
+// NUEVA CONFIGURACIÓN DE ANIMACIÓN
+const MODAL_ANIMATION_PROPS = {
+    // Hace que la animación de entrada dure 450ms (se nota más y es suave)
+    openAnimationConfig: {
+        timing: { duration: 450 },
+    },
+    // Hace que la animación de salida sea un poco más rápida pero suave
+    closeAnimationConfig: {
+        timing: { duration: 300 },
+    },
+    // Hace que el gesto de arrastrar para cerrar sea más fluido
+    dragToss: 0.05,
+    threshold: 120,
+    // Asegura que use el driver nativo para 60fps
+    useNativeDriver: true,
+    // Estilos base
+    adjustToContentHeight: true,
+    avoidKeyboardLikeIOS: true,
+    overlayStyle: OVERLAY_STYLE,
+    handlePosition: 'inside',
+}
 // =====================================================================
 // CONSTANTES
 // =====================================================================
@@ -63,10 +85,8 @@ const CustomAlert = forwardRef((_, ref) => {
     return (
         <Modalize
             ref={modalRef}
-            adjustToContentHeight={true}
-            overlayStyle={OVERLAY_STYLE}
+            {...MODAL_ANIMATION_PROPS} // <--- AQUI LA MAGIA
             modalStyle={{ backgroundColor: colors.background }}
-            handlePosition="inside"
         >
             <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
                 <ScrollView
@@ -150,11 +170,8 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, statusFilter
     return (
         <Modalize
             ref={modalRef}
-            adjustToContentHeight={true}
-            avoidKeyboardLikeIOS={true}
-            overlayStyle={OVERLAY_STYLE}
+            {...MODAL_ANIMATION_PROPS} // <--- AQUI LA MAGIA
             modalStyle={{ backgroundColor: colors.background }}
-            handlePosition="inside"
         >
             <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
                 <ScrollView
@@ -272,6 +289,8 @@ const EditUserModalContent = ({ modalRef, user, onUserUpdated, alertRef }) => {
     useEffect(() => {
         if (user) {
             setEditedUser({ ...user })
+
+            // Limpia errores inmediatamente para que no parpadeen los rojos viejos
             setUserErrors({
                 name: [],
                 email: [],
@@ -393,11 +412,8 @@ const EditUserModalContent = ({ modalRef, user, onUserUpdated, alertRef }) => {
         <>
             <Modalize
                 ref={modalRef}
-                adjustToContentHeight={true}
-                avoidKeyboardLikeIOS={true}
-                overlayStyle={OVERLAY_STYLE}
+                {...MODAL_ANIMATION_PROPS} // <--- AQUI LA MAGIA
                 modalStyle={{ backgroundColor: colors.background }}
-                handlePosition="inside"
             >
                 <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
                     <ScrollView
@@ -576,7 +592,7 @@ const EditUserModalContent = ({ modalRef, user, onUserUpdated, alertRef }) => {
                                             </>
                                         ) : (
                                             <>
-                                                <Ionicons name="checkmark-outline" size={24} color={colors.accentForeground} />
+                                                <Ionicons name="download-outline" size={24} color={colors.accentForeground} />
                                                 <Button.Label>Guardar</Button.Label>
                                             </>
                                         )}
@@ -592,10 +608,8 @@ const EditUserModalContent = ({ modalRef, user, onUserUpdated, alertRef }) => {
 
             <Modalize
                 ref={roleModalRef}
-                adjustToContentHeight={true}
-                overlayStyle={OVERLAY_STYLE}
+                {...MODAL_ANIMATION_PROPS} // <--- AQUI LA MAGIA
                 modalStyle={{ backgroundColor: colors.background }}
-                handlePosition="inside"
             >
                 <View className="px-[6%] pt-[9%] pb-[6%]" style={{ maxHeight: MODAL_MAX_HEIGHT }}>
                     <View className="flex gap-0 mb-8">
@@ -767,11 +781,8 @@ const CreateUserModalContent = ({ modalRef, onUserCreated, isLoading, alertRef }
         <>
             <Modalize
                 ref={modalRef}
-                adjustToContentHeight={true}
-                avoidKeyboardLikeIOS={true}
-                overlayStyle={OVERLAY_STYLE}
+                {...MODAL_ANIMATION_PROPS} // <--- AQUI LA MAGIA
                 modalStyle={{ backgroundColor: colors.background }}
-                handlePosition="inside"
             >
                 <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
                     <ScrollView
@@ -954,10 +965,8 @@ const CreateUserModalContent = ({ modalRef, onUserCreated, isLoading, alertRef }
 
             <Modalize
                 ref={roleModalRef}
-                adjustToContentHeight={true}
-                overlayStyle={OVERLAY_STYLE}
+                {...MODAL_ANIMATION_PROPS} // <--- AQUI LA MAGIA
                 modalStyle={{ backgroundColor: colors.background }}
-                handlePosition="inside"
             >
                 <View className="px-[6%] pt-[9%] pb-[6%]" style={{ maxHeight: MODAL_MAX_HEIGHT }}>
                     <View className="flex gap-0 mb-8">
@@ -1019,11 +1028,8 @@ const StatusChangeModalContent = ({ modalRef, user, onStatusChanged, alertRef })
     return (
         <Modalize
             ref={modalRef}
-            adjustToContentHeight={true}
-            avoidKeyboardLikeIOS={true}
-            overlayStyle={OVERLAY_STYLE}
+            {...MODAL_ANIMATION_PROPS} // <--- AQUI LA MAGIA
             modalStyle={{ backgroundColor: colors.background }}
-            handlePosition="inside"
         >
             <View style={{ maxHeight: MODAL_MAX_HEIGHT }}>
                 <ScrollView
@@ -1109,14 +1115,25 @@ const UsersScreen = () => {
 
     // Handlers para abrir modales
     const openFilterModal = () => filterModalRef.current?.open()
-    const openCreateModal = () => createModalRef.current?.open()
+    const openCreateModal = () => {
+        // Incluso si no hay datos, damos tiempo al UI thread para prepararse
+        requestAnimationFrame(() => {
+            createModalRef.current?.open()
+        })
+    }
     const openEditModal = (user) => {
-        setUserToEdit(user)
-        editModalRef.current?.open()
+        setUserToEdit(user) // 1. React procesa los datos y renderiza el form oculto
+
+        // 2. Esperamos un poco (100ms es imperceptible para el usuario pero oro para el CPU)
+        setTimeout(() => {
+            editModalRef.current?.open() // 3. Iniciamos la animación suavemente
+        }, 0)
     }
     const openStatusModal = (user) => {
         setUserToChangeStatus(user)
-        statusModalRef.current?.open()
+        setTimeout(() => {
+            statusModalRef.current?.open()
+        }, 0)
     }
 
     const fetchData = async () => {
@@ -1176,7 +1193,10 @@ const UsersScreen = () => {
                 <View className="p-[6%] min-h-full">
                     <View className="flex flex-col w-full justify-between shrink-0 gap-4 items-end">
                         <View className="w-full flex flex-row justify-between items-end">
-                            <Text className="font-bold text-[32px] text-foreground">Usuarios</Text>
+                            <View className="flex flex-row items-center justify-center gap-2">
+                                <BackButton />
+                                <Text className="font-bold text-[32px] text-foreground">Usuarios</Text>
+                            </View>
                             <View className="flex flex-row gap-2 items-center">
                                 <Button isIconOnly className="bg-transparent shrink-0" isDisabled={isLoading} onPress={openFilterModal}>
                                     <Ionicons name="filter-outline" size={24} color={colors.foreground} />
@@ -1231,7 +1251,7 @@ const UsersScreen = () => {
                         </TextField.Input>
                     </TextField>
                     {isLoading ? (
-                        <View className="py-12 items-center">
+                        <View className="absolute inset-0 justify-center items-center z-50">
                             <Spinner color={colors.foreground} size="md" />
                         </View>
                     ) : (
@@ -1243,8 +1263,8 @@ const UsersScreen = () => {
                                             selectionMode="single"
                                             className="border-0"
                                             isDividerVisible={false}
-                                            value={expandedKeys}
-                                            onValueChange={setExpandedKeys}
+                                            //value={expandedKeys}
+                                            //onValueChange={setExpandedKeys}
                                         >
                                             {paginatedItems.map((item) => (
                                                 <Accordion.Item key={item.id} value={item.id} className="bg-accent-soft mb-2 rounded-lg overflow-hidden">
@@ -1295,10 +1315,7 @@ const UsersScreen = () => {
                                                                 </View>
                                                                 <View className="flex-row items-start justify-between">
                                                                     <Text className="text-[14px] text-muted-foreground w-28 pt-0.5">Puesto</Text>
-                                                                    <Text
-                                                                        className="text-[14px] text-foreground text-right flex-1 font-medium"
-                                                                        numberOfLines={2}
-                                                                    >
+                                                                    <Text className="text-[14px] text-foreground text-right flex-1" numberOfLines={2}>
                                                                         {item.position}
                                                                     </Text>
                                                                 </View>
@@ -1320,7 +1337,7 @@ const UsersScreen = () => {
                                                                     </Text>
                                                                 </View>
                                                             </View>
-                                                            <View className="flex-row items-center justify-between">
+                                                            <View className="flex-row items-center justify-between mt-2">
                                                                 <Text className="text-[14px] text-muted-foreground">Estado</Text>
                                                                 <TouchableOpacity onPress={() => openStatusModal(item)} activeOpacity={0.8}>
                                                                     <View pointerEvents="none">

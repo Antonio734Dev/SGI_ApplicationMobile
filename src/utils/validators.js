@@ -129,3 +129,69 @@ export function validateDatePicker(value) {
 
     return null
 }
+
+// Validador para números positivos
+export function validPositiveNumber(value) {
+    if (value === null || value === '') {
+        return
+    }
+
+    const numValue = Number(value)
+
+    if (isNaN(numValue)) {
+        return 'Debe ser un número válido.'
+    }
+
+    if (numValue <= 0) {
+        return 'Debe ser un número positivo mayor a 0.'
+    }
+
+    if (!Number.isInteger(numValue)) {
+        return 'Debe ser un número entero.'
+    }
+}
+
+// Validador para fechas
+export function validDate(value) {
+    if (value === null || value === '') {
+        return 'La fecha es obligatoria.'
+    }
+
+    // Formato YYYY-MM-DD
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+
+    if (!dateRegex.test(value)) {
+        return 'Formato de fecha inválido. Use YYYY-MM-DD.'
+    }
+
+    const date = new Date(value)
+
+    if (isNaN(date.getTime())) {
+        return 'Fecha inválida.'
+    }
+}
+
+// Validador para fecha de caducidad (debe ser posterior a hoy)
+export function validExpirationDate(value) {
+    if (value === null || value === '') {
+        return 'La fecha de caducidad es obligatoria.'
+    }
+
+    const dateError = validDate(value)
+    if (dateError) return dateError
+
+    const inputDate = new Date(value)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    if (inputDate < today) {
+        return 'La fecha de caducidad debe ser posterior a hoy.'
+    }
+}
+
+export const minLength = (min) => (value) => {
+    if (!value || value.length < min) {
+        return `Debe tener al menos ${min} caracteres`
+    }
+    return null
+}

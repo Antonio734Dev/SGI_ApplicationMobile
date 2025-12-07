@@ -43,6 +43,7 @@ const ScrollableLayout = ({ children, onRefresh, contentContainerStyle }) => {
                             onRefresh={handleRefresh}
                             colors={[colors.accent]} // Android
                             tintColor={colors.accent} // iOS
+                            progressBackgroundColor={colors.background}
                         />
                     ) : null
                 }

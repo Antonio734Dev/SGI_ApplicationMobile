@@ -54,8 +54,8 @@ const ThemeSwitcher = () => {
                 </View>
             </Modal>
 
-            <Button onPress={handleThemeToggle} className="rounded-sm" variant="secondary">
-                Cambiar tema
+            <Button isIconOnly className="bg-transparent shrink-0" onPress={handleThemeToggle}>
+                <Ionicons name={isDark ? 'moon-outline' : 'sunny-outline'} size={24} color={colors.foreground} />
             </Button>
 
             <StatusBar style={isDark ? 'light' : 'dark'} />

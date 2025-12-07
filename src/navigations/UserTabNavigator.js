@@ -1,61 +1,88 @@
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
+import React from 'react'
+import { View } from 'react-native'
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs'
 import { useTheme } from 'heroui-native'
 import { Ionicons } from '@expo/vector-icons'
-import { Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+
 import HomeScreen from '../screens/shared/HomeScreen'
 import ProfileScreen from '../screens/shared/ProfileScreen'
 
-const Tab = createBottomTabNavigator()
+const Tab = createMaterialTopTabNavigator()
 
 const UserTabNavigator = () => {
     const { colors } = useTheme()
+    const insets = useSafeAreaInsets()
 
     return (
-        <Tab.Navigator
-            screenOptions={({ route }) => ({
-                // Convertimos screenOptions en una función
-                headerShown: false,
-                tabBarActiveTintColor: colors.accent, // Ej: Tu color de acento
-                tabBarInactiveTintColor: colors.muted, // Ej: Un color gris
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+            <Tab.Navigator
+                tabBarPosition="bottom"
+                screenOptions={({ route }) => ({
+                    tabBarActiveTintColor: colors.accent,
+                    tabBarInactiveTintColor: colors.mutedForeground || colors.muted, // Fallback por si acaso
 
-                // 5. Estilo de la barra (opcional, pero recomendado para el tema)
-                tabBarStyle: {
-                    backgroundColor: colors.background, // Fondo de la barra
-                    borderTopWidth: 0, // Quita la línea superior
-                    height: 60,
-                },
+                    // Estilo del Label (Texto)
+                    tabBarLabelStyle: {
+                        fontSize: 14,
+                        fontWeight: '600',
+                        textTransform: 'capitalize',
+                        margin: 0,
+                        marginTop: 4,
+                    },
 
-                tabBarItemStyle: {
-                    justifyContent: 'center', // Centra el ícono y la etiqueta verticalmente
-                },
+                    // Estilo de la Barra
+                    tabBarStyle: {
+                        backgroundColor: colors.background,
+                        elevation: 0,
+                        shadowOpacity: 0,
+                        borderTopWidth: 0,
+                        borderTopColor: 'transparent',
+                        borderBottomWidth: 0,
+                        // Ajustamos la altura total para acomodar icono + texto + insets
+                        paddingBottom: insets.bottom,
+                        height: 'auto',
+                    },
 
-                tabBarShowLabel: false,
+                    // Indicador superior (Lo hacemos invisible)
+                    tabBarIndicatorStyle: {
+                        backgroundColor: 'transparent',
+                        height: 0,
+                    },
 
-                // 6. Función que renderiza el ícono
-                tabBarIcon: ({ focused, color, size }) => {
-                    let iconName
+                    // Estilo del Item (Contenedor de Icono + Texto)
+                    tabBarItemStyle: {
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        paddingVertical: 8,
+                    },
 
-                    if (route.name === 'Inicio') {
-                        iconName = focused ? 'home' : 'home'
-                    } else if (route.name === 'Perfil') {
-                        iconName = focused ? 'person' : 'person'
-                    }
+                    tabBarShowIcon: true,
 
-                    // Devuelve el componente de ícono
-                    return (
-                        <View className="flex flex-col items-center justify-center pt-4">
-                            <Ionicons name={iconName} size={20} color={color} />
-                            <Text className="font-bold text-xs" style={{ color: focused ? colors.accent : colors.muted }}>
-                                {route.name}
-                            </Text>
-                        </View>
-                    )
-                },
-            })}
-        >
-            <Tab.Screen name="Inicio" component={HomeScreen} />
-            <Tab.Screen name="Perfil" component={ProfileScreen} />
-        </Tab.Navigator>
+                    tabBarIcon: ({ focused, color }) => {
+                        let iconName
+
+                        switch (route.name) {
+                            case 'Inicio':
+                                iconName = focused ? 'home' : 'home-outline'
+                                break
+                            case 'Perfil':
+                                iconName = focused ? 'person' : 'person-outline'
+                                break
+                            default:
+                                iconName = focused ? 'ellipse' : 'ellipse-outline'
+                        }
+
+                        // Tamaño fijo de 24px igual que en Admin
+                        return <Ionicons name={iconName} size={24} color={color} />
+                    },
+                })}
+            >
+                <Tab.Screen name="Inicio" component={HomeScreen} />
+                <Tab.Screen name="Perfil" component={ProfileScreen} />
+            </Tab.Navigator>
+        </View>
     )
 }
 

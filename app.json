@@ -27,6 +27,16 @@
             "favicon": "./assets/favicon.png",
             "bundler": "metro"
         },
-        "plugins": ["expo-font"]
+        "plugins": [
+            "expo-font",
+            [
+                "expo-media-library",
+                {
+                    "photosPermission": "Permite a la app acceder a tus fotos para guardar el código QR.",
+                    "savePhotosPermission": "Permite a la app guardar el código QR en tu galería.",
+                    "isAccessMediaLocationEnabled": true
+                }
+            ]
+        ]
     }
 }

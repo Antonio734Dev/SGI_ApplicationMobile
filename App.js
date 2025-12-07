@@ -40,13 +40,13 @@ export default function App() {
                         colorScheme: 'system',
                         theme: {
                             // ---------
-                            // LIGHT MODE - Pure White Base
+                            // LIGHT MODE - Pure White Base (INTACTO)
                             // ---------
                             light: {
                                 colors: {
                                     // Base (Blanco Puro)
                                     background: '#FFFFFF',
-                                    foreground: '#000000', // Negro Puro
+                                    foreground: '#000000',
                                     panel: '#FFFFFF',
 
                                     // Muted
@@ -59,20 +59,19 @@ export default function App() {
                                     default: '#FFFFFF',
                                     defaultForeground: '#000000',
 
-                                    // Superficies elevadas (Recorrido de valores)
-                                    // El antiguo background (#f5f5f5) pasa a ser surface1
-                                    surface1: '#F5F5F5',
+                                    // Superficies elevadas
+                                    surface1: '#F5F5F5', // Igual a accentSoft
                                     surface2: '#EEEEEE',
                                     surface3: '#E0E0E0',
 
-                                    // Bordes y divisores
+                                    // Bordes
                                     border: '#E5E5E5',
                                     divider: '#F5F5F5',
 
-                                    // Brand colors - Accent Monocromático de alto contraste
+                                    // Brand colors
                                     accent: '#171717',
                                     accentForeground: '#FFFFFF',
-                                    accentSoft: '#F5F5F5',
+                                    accentSoft: '#F5F5F5', // Igual a surface1
                                     accentSoftForeground: '#171717',
                                 },
                                 borderRadius: {
@@ -86,13 +85,13 @@ export default function App() {
                             },
 
                             // ---------
-                            // DARK MODE - Pure Black Base
+                            // DARK MODE - Pure Black Base (CORREGIDO)
                             // ---------
                             dark: {
                                 colors: {
                                     // Base (Negro Puro)
                                     background: '#000000',
-                                    foreground: '#FFFFFF', // Blanco Puro
+                                    foreground: '#FFFFFF',
                                     panel: '#000000',
 
                                     // Muted
@@ -105,20 +104,21 @@ export default function App() {
                                     default: '#000000',
                                     defaultForeground: '#FFFFFF',
 
-                                    // Superficies elevadas (Recorrido de valores)
-                                    // El antiguo background (#0f0f0f) pasa a ser surface1
-                                    surface1: '#0F0F0F',
-                                    surface2: '#1A1A1A',
-                                    surface3: '#262626',
+                                    // Superficies elevadas (Inversión ajustada)
+                                    // surface1 ahora es #171717 para coincidir con accentSoft
+                                    surface1: '#171717',
+                                    surface2: '#262626',
+                                    surface3: '#404040',
 
                                     // Bordes y divisores
                                     border: '#262626',
-                                    divider: '#1A1A1A',
+                                    divider: '#171717',
 
-                                    // Brand colors - Accent Monocromático
+                                    // Brand colors
                                     accent: '#FFFFFF',
                                     accentForeground: '#000000',
-                                    accentSoft: '#1A1A1A',
+                                    // accentSoft ahora es #171717 para coincidir con surface1
+                                    accentSoft: '#171717',
                                     accentSoftForeground: '#FFFFFF',
                                 },
                                 borderRadius: {

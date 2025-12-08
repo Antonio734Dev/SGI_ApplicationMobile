@@ -391,14 +391,6 @@ const HomeScreenIndex = () => {
                                 color={colors.accent}
                             />
                         </View>
-                        {!isAdmin && (
-                            <View className="mt-4 bg-surface-1 p-4 rounded-lg border border-surface-2 flex-row gap-3">
-                                <Ionicons name="information-circle" size={24} color={colors.accent} />
-                                <Text className="text-muted-foreground flex-1 leading-5 text-sm">
-                                    Utiliza el escáner QR para buscar productos rápidamente. Accede a tu perfil para ver tu información.
-                                </Text>
-                            </View>
-                        )}
                     </View>
                 </View>
             </ScrollableLayout>

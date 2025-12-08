@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import HomeScreen from '../screens/shared/HomeScreen'
 import ProfileScreen from '../screens/shared/ProfileScreen'
+import ProductsScreen from '../screens/shared/ProductsScreen'
 
 const Tab = createMaterialTopTabNavigator()
 
@@ -67,6 +68,9 @@ const UserTabNavigator = () => {
                             case 'Inicio':
                                 iconName = focused ? 'home' : 'home-outline'
                                 break
+                            case 'Productos':
+                                iconName = focused ? 'cube' : 'cube-outline'
+                                break
                             case 'Perfil':
                                 iconName = focused ? 'person' : 'person-outline'
                                 break
@@ -80,6 +84,7 @@ const UserTabNavigator = () => {
                 })}
             >
                 <Tab.Screen name="Inicio" component={HomeScreen} />
+                <Tab.Screen name="Productos" component={ProductsScreen} />
                 <Tab.Screen name="Perfil" component={ProfileScreen} />
             </Tab.Navigator>
         </View>

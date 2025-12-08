@@ -18,6 +18,7 @@ import * as Sharing from 'expo-sharing'
 
 // Servicios
 import { getProducts, createProduct, updateProduct, getStockCatalogues, getProductStatuses, getQrCodeImage, getProductByQrHash } from '../../services/product'
+import { useAuth } from '../../contexts/AuthContext'
 
 const { height } = Dimensions.get('window')
 const MODAL_MAX_HEIGHT = height * 0.75
@@ -1662,6 +1663,8 @@ const QrScannerModalContent = ({ modalRef, onScanSuccess, alertRef }) => {
 // =====================================================================
 const ProductDetailsModalContent = ({ modalRef, product, onEdit, alertRef, catalogues, statuses }) => {
     const { colors } = useTheme()
+    const { userRole } = useAuth()
+    const isAdmin = userRole === 'ADMIN' || userRole === '1'
 
     const onClose = () => modalRef.current?.close()
 
@@ -1763,13 +1766,14 @@ const ProductDetailsModalContent = ({ modalRef, product, onEdit, alertRef, catal
                                     </Text>
                                 </View>
                             </View>
-
-                            <View className="flex-row justify-end gap-3 pt-8">
-                                <Button className="flex-1" variant="primary" onPress={handleEdit}>
-                                    <Ionicons name="create-outline" size={24} color={colors.accentForeground} />
-                                    <Button.Label>Editar</Button.Label>
-                                </Button>
-                            </View>
+                            {isAdmin && (
+                                <View className="flex-row justify-end gap-3 pt-8">
+                                    <Button className="flex-1" variant="primary" onPress={handleEdit}>
+                                        <Ionicons name="create-outline" size={24} color={colors.accentForeground} />
+                                        <Button.Label>Editar</Button.Label>
+                                    </Button>
+                                </View>
+                            )}
                         </>
                     ) : (
                         <View className="h-20" />
@@ -1790,6 +1794,8 @@ const ProductsScreen = () => {
     const [catalogues, setCatalogues] = useState([])
     const [statuses, setStatuses] = useState([])
     const { colors } = useTheme()
+    const { userRole } = useAuth()
+    const isAdmin = userRole === 'ADMIN' || userRole === '1'
 
     // Estados de filtros
     const [searchValue, setSearchValue] = useState('')
@@ -1978,15 +1984,17 @@ const ProductsScreen = () => {
                                 <Button isIconOnly className="size-12 bg-transparent shrink-0" isDisabled={isLoading} onPress={openFilterModal}>
                                     <Ionicons name="filter-outline" size={24} color={colors.foreground} />
                                 </Button>
-                                <Button
-                                    isIconOnly
-                                    className="size-12 font-semibold shrink-0"
-                                    variant="primary"
-                                    isDisabled={isLoading}
-                                    onPress={openCreateModal}
-                                >
-                                    <Ionicons name="add-outline" size={24} color={colors.accentForeground} />
-                                </Button>
+                                {isAdmin && (
+                                    <Button
+                                        isIconOnly
+                                        className="size-12 font-semibold shrink-0"
+                                        variant="primary"
+                                        isDisabled={isLoading}
+                                        onPress={openCreateModal}
+                                    >
+                                        <Ionicons name="add-outline" size={24} color={colors.accentForeground} />
+                                    </Button>
+                                )}
                             </View>
                         </View>
                     </View>
@@ -2073,13 +2081,15 @@ const ProductsScreen = () => {
                                                                     </TouchableOpacity>
                                                                 )}
 
-                                                                <TouchableOpacity
-                                                                    onPress={() => handleEditFromDetails(item)}
-                                                                    className="w-12 h-12 flex items-center justify-center rounded-full"
-                                                                    activeOpacity={0.6}
-                                                                >
-                                                                    <Ionicons name="create-outline" size={24} color={colors.accent} />
-                                                                </TouchableOpacity>
+                                                                {isAdmin && (
+                                                                    <TouchableOpacity
+                                                                        onPress={() => handleEditFromDetails(item)}
+                                                                        className="w-12 h-12 flex items-center justify-center rounded-full"
+                                                                        activeOpacity={0.6}
+                                                                    >
+                                                                        <Ionicons name="create-outline" size={24} color={colors.accent} />
+                                                                    </TouchableOpacity>
+                                                                )}
 
                                                                 {/* Indicador también ajustado al área de toque */}
                                                                 <View className="w-12 h-12 flex items-center justify-center">

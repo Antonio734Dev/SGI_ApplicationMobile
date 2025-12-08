@@ -133,7 +133,7 @@ const LoginScreen = () => {
                     {/* Header Logo & Title */}
                     <View className="items-center mb-10">
                         <View className="w-16 h-16 items-center justify-center mb-6">
-                            <Ionicons name="cube-outline" size={32} color={colors.accent} />
+                            <Ionicons name="cube-outline" size={44} color={colors.accent} />
                         </View>
                         <Text className="font-bold text-[32px] text-foreground text-center mb-2">¡Bienvenido!</Text>
                         <Text className="text-base text-center text-muted-foreground px-4">Inicia sesión para continuar</Text>
@@ -141,7 +141,7 @@ const LoginScreen = () => {
 
                     {/* Error General */}
                     {submitError ? (
-                        <View className="mb-8 p-4 flex-row items-center rounded-xl border border-danger/20" style={{ backgroundColor: colors.danger + '10' }}>
+                        <View className="mb-8 p-4 flex-row items-center rounded-lg bg-danger/10">
                             <Ionicons name="alert-circle-outline" size={24} color={colors.danger} />
                             <Text className="font-medium ml-3 flex-1" style={{ color: colors.danger }}>
                                 {submitError}

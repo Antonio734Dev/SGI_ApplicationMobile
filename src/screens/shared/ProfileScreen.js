@@ -802,6 +802,7 @@ const ProfileScreen = () => {
         } catch (err) {
             console.error('Error fetching profile:', err)
             alertRef.current?.show('Error', 'No se pudo cargar el perfil', 'error')
+            logout()
         } finally {
             setIsLoading(false)
         }

@@ -9,6 +9,8 @@ module.exports = function (api) {
                     moduleName: '@env',
                     path: '.env',
                     allowUndefined: true,
+                    safe: false,
+                    systemvars: true, // Permite usar variables del sistema también
                 },
             ],
             'react-native-reanimated/plugin',

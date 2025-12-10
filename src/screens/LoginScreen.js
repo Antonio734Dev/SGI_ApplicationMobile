@@ -89,11 +89,19 @@ const LoginScreen = () => {
             setIsLoading(true)
             await login(formData.email, formData.password)
         } catch (e) {
-            console.error(e)
-            console.log(e)
-            if (e.response?.data) {
+            console.error('[LoginScreen] Error completo:', e)
+            console.error('[LoginScreen] Error message:', e.message)
+            console.error('[LoginScreen] Error response:', e.response)
+            console.error('[LoginScreen] Error isConnectionError:', e.isConnectionError)
+            
+            // Manejar errores de conexión
+            if (e.isConnectionError || !e.response) {
+                setSubmitError('No se pudo conectar con el servidor. Verifica tu conexión a internet y que el servidor esté disponible.')
+                setFieldErrors({ email: [], password: [] })
+            } else if (e.response?.data) {
+                // Manejar errores del servidor con respuesta
                 const { result, title, description } = e.response.data
-                setSubmitError(title || 'Error al iniciar sesión.')
+                setSubmitError(title || description || 'Error al iniciar sesión.')
 
                 if (result && Array.isArray(result) && result.length > 0) {
                     const newFieldErrors = { email: [], password: [] }
@@ -105,9 +113,13 @@ const LoginScreen = () => {
                         }
                     })
                     setFieldErrors(newFieldErrors)
+                } else {
+                    setFieldErrors({ email: [], password: [] })
                 }
             } else {
-                setSubmitError('No se pudo conectar con el servidor.')
+                // Error desconocido
+                setSubmitError('Error inesperado. Por favor, intenta nuevamente.')
+                setFieldErrors({ email: [], password: [] })
             }
         } finally {
             setIsLoading(false)

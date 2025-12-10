@@ -763,7 +763,7 @@ const CreateUserModalContent = ({ modalRef, onUserCreated, isLoading, alertRef }
             await createUser(newUser)
             onClose()
             setTimeout(() => {
-                alertRef.current?.show('Éxito', 'Usuario creado correctamente', 'success')
+                alertRef.current?.show('Éxito', 'Agregado con éxito, su contraseña es Admin2024#Secure', 'success')
             }, 300)
             if (onUserCreated) onUserCreated()
         } catch (error) {

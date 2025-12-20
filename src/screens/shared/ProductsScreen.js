@@ -1,15 +1,16 @@
 import React, { useEffect, useState, useMemo, useRef, forwardRef, useImperativeHandle } from 'react'
-import { Text, View, TouchableOpacity, Platform, Dimensions, Image, StyleSheet, Alert } from 'react-native'
+import { Text, View, TouchableOpacity, Platform, Dimensions, Image, StyleSheet, Alert, Pressable } from 'react-native'
 import { useRoute, useFocusEffect } from '@react-navigation/native'
 import ScrollableLayout from '../../layouts/ScrollableLayout'
 import { Accordion, Button, RadioGroup, ScrollShadow, Spinner, TextField, useTheme } from 'heroui-native'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
-import { formatDateLiteral } from '../../utils/utils'
+import { formatDateLiteral, formatDateStringToShort, formatDateToLocalString } from '../../utils/utils'
 import { Modalize } from 'react-native-modalize'
 import { ScrollView } from 'react-native-gesture-handler'
 import { required, validPositiveNumber, validDate } from '../../utils/validators'
 import { CameraView, useCameraPermissions } from 'expo-camera'
+import DateTimePicker from '@react-native-community/datetimepicker'
 
 // SOLUCIÓN: Imports estáticos aquí arriba
 import * as FileSystem from 'expo-file-system/legacy'
@@ -18,6 +19,8 @@ import * as Sharing from 'expo-sharing'
 
 // Servicios
 import { getProducts, createProduct, updateProduct, getStockCatalogues, getProductStatuses, getQrCodeImage, getProductByQrHash } from '../../services/product'
+import { getUnitsOfMeasurement } from '../../services/unitOfMeasurement'
+import { getWarehouseTypes } from '../../services/warehouseType'
 import { useAuth } from '../../contexts/AuthContext'
 
 const { height } = Dimensions.get('window')
@@ -408,50 +411,83 @@ const ViewQrModalContent = ({ modalRef, product, alertRef }) => {
 // =====================================================================
 // MODAL DE CREACIÓN DE PRODUCTO
 // =====================================================================
-const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, alertRef, catalogues, statuses }) => {
+const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, alertRef, catalogues, statuses, unitsOfMeasurement, warehouseTypes }) => {
     const { colors } = useTheme()
     const catalogueModalRef = useRef(null)
     const statusModalRef = useRef(null)
+    const unidadMedidaModalRef = useRef(null)
+    const warehouseTypeModalRef = useRef(null)
 
     const [isSaving, setIsSaving] = useState(false)
+    const [showDatePickerIngreso, setShowDatePickerIngreso] = useState(false)
+    const [showDatePickerCaducidad, setShowDatePickerCaducidad] = useState(false)
+    const [showDatePickerReanalisis, setShowDatePickerReanalisis] = useState(false)
+
+    // Inicializar fechas con fecha actual
+    const getTodayDateString = () => {
+        const today = new Date()
+        return formatDateToLocalString(today)
+    }
+
     const [newProduct, setNewProduct] = useState({
         stockCatalogueId: '',
         productStatusId: '',
+        unitOfMeasurementId: '',
+        warehouseTypeId: '',
+        nombre: '',
+        codigoProducto: '',
+        numeroSerie: '',
         lote: '',
         loteProveedor: '',
         fabricante: '',
         distribuidor: '',
-        fechaIngreso: '',
-        fechaCaducidad: '',
+        fechaIngreso: getTodayDateString(),
+        fechaCaducidad: getTodayDateString(),
+        fechaReanalisis: getTodayDateString(),
         cantidad: '',
-        totalEnvases: '',
+        numeroAnalisis: '',
+        numeroContenedores: '',
     })
 
     const [productErrors, setProductErrors] = useState({
         stockCatalogueId: [],
         productStatusId: [],
+        unitOfMeasurementId: [],
+        warehouseTypeId: [],
+        nombre: [],
+        codigoProducto: [],
+        numeroSerie: [],
         lote: [],
         loteProveedor: [],
         fabricante: [],
         distribuidor: [],
         fechaIngreso: [],
         fechaCaducidad: [],
+        fechaReanalisis: [],
         cantidad: [],
-        totalEnvases: [],
+        numeroAnalisis: [],
+        numeroContenedores: [],
     })
 
     // Validadores
     const validators = {
         stockCatalogueId: [required],
         productStatusId: [required],
+        unitOfMeasurementId: [required],
+        warehouseTypeId: [required],
+        nombre: [required],
+        codigoProducto: [required],
+        numeroSerie: [],
         lote: [required],
-        loteProveedor: [],
+        loteProveedor: [required],
         fabricante: [],
         distribuidor: [],
         fechaIngreso: [required, validDate],
-        fechaCaducidad: [required, validDate],
+        fechaCaducidad: [],
+        fechaReanalisis: [],
         cantidad: [required, validPositiveNumber],
-        totalEnvases: [required, validPositiveNumber],
+        numeroAnalisis: [],
+        numeroContenedores: [required, validPositiveNumber],
     }
 
     const runValidators = (value, fns) => fns.map((fn) => fn(value)).filter(Boolean)
@@ -463,32 +499,73 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
         setProductErrors((prev) => ({ ...prev, [field]: errs }))
     }
 
+    const onDateChange = (field, event, selectedDate) => {
+        if (Platform.OS === 'android') {
+            if (field === 'ingreso') setShowDatePickerIngreso(false)
+            if (field === 'caducidad') setShowDatePickerCaducidad(false)
+            if (field === 'reanalisis') setShowDatePickerReanalisis(false)
+        }
+
+        if (event.type === 'set' && selectedDate) {
+            // Usar formato local para evitar problemas de zona horaria
+            const formattedDate = formatDateToLocalString(selectedDate)
+            if (field === 'ingreso') {
+                handleInputChange('fechaIngreso', formattedDate)
+            } else if (field === 'caducidad') {
+                handleInputChange('fechaCaducidad', formattedDate)
+            } else if (field === 'reanalisis') {
+                handleInputChange('fechaReanalisis', formattedDate)
+            }
+        } else {
+            if (field === 'ingreso') setShowDatePickerIngreso(false)
+            if (field === 'caducidad') setShowDatePickerCaducidad(false)
+            if (field === 'reanalisis') setShowDatePickerReanalisis(false)
+        }
+    }
+
     const onClose = () => {
         modalRef.current?.close()
         setNewProduct({
             stockCatalogueId: '',
             productStatusId: '',
+            unitOfMeasurementId: '',
+            warehouseTypeId: '',
+            nombre: '',
+            codigoProducto: '',
+            numeroSerie: '',
             lote: '',
             loteProveedor: '',
             fabricante: '',
             distribuidor: '',
-            fechaIngreso: '',
-            fechaCaducidad: '',
+            fechaIngreso: getTodayDateString(),
+            fechaCaducidad: getTodayDateString(),
+            fechaReanalisis: getTodayDateString(),
             cantidad: '',
-            totalEnvases: '',
+            numeroAnalisis: '',
+            numeroContenedores: '',
         })
         setProductErrors({
             stockCatalogueId: [],
             productStatusId: [],
+            unitOfMeasurementId: [],
+            warehouseTypeId: [],
+            codigoProducto: [],
             lote: [],
+            nombre: [],
+            numeroSerie: [],
             loteProveedor: [],
             fabricante: [],
             distribuidor: [],
             fechaIngreso: [],
             fechaCaducidad: [],
+            fechaReanalisis: [],
             cantidad: [],
-            totalEnvases: [],
+            numeroAnalisis: [],
+            numeroContenedores: [],
         })
+        setShowDatePickerIngreso(false)
+        setShowDatePickerCaducidad(false)
+        setShowDatePickerReanalisis(false)
     }
 
     const getCatalogueName = (id) => {
@@ -501,36 +578,63 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
         return status ? status.name : 'Seleccionar estado'
     }
 
+    const getUnitOfMeasurementName = (id) => {
+        if (!id) return 'Seleccionar unidad'
+        const unit = unitsOfMeasurement.find((u) => u.id === Number(id))
+        return unit ? `${unit.name} (${unit.code})` : 'Seleccionar unidad'
+    }
+
+    const getWarehouseTypeName = (id) => {
+        if (!id) return 'Seleccionar tipo'
+        const wt = warehouseTypes.find((w) => w.id === Number(id))
+        return wt ? `${wt.code} - ${wt.name}` : 'Seleccionar tipo'
+    }
+
     const handleCreate = async () => {
         // Validación final
         const stockCatalogueIdErrs = runValidators(newProduct.stockCatalogueId, validators.stockCatalogueId)
         const productStatusIdErrs = runValidators(newProduct.productStatusId, validators.productStatusId)
+        const unitOfMeasurementIdErrs = runValidators(newProduct.unitOfMeasurementId, validators.unitOfMeasurementId)
+        const warehouseTypeIdErrs = runValidators(newProduct.warehouseTypeId, validators.warehouseTypeId)
+        const nombreErrs = runValidators(newProduct.nombre, validators.nombre)
+        const codigoProductoErrs = runValidators(newProduct.codigoProducto, validators.codigoProducto)
         const loteErrs = runValidators(newProduct.lote, validators.lote)
+        const loteProveedorErrs = runValidators(newProduct.loteProveedor, validators.loteProveedor)
         const fechaIngresoErrs = runValidators(newProduct.fechaIngreso, validators.fechaIngreso)
-        const fechaCaducidadErrs = runValidators(newProduct.fechaCaducidad, validators.fechaCaducidad)
         const cantidadErrs = runValidators(newProduct.cantidad, validators.cantidad)
-        const totalEnvasesErrs = runValidators(newProduct.totalEnvases, validators.totalEnvases)
+        const numeroContenedoresErrs = runValidators(newProduct.numeroContenedores, validators.numeroContenedores)
 
         if (
             stockCatalogueIdErrs.length > 0 ||
             productStatusIdErrs.length > 0 ||
+            unitOfMeasurementIdErrs.length > 0 ||
+            warehouseTypeIdErrs.length > 0 ||
+            nombreErrs.length > 0 ||
+            codigoProductoErrs.length > 0 ||
             loteErrs.length > 0 ||
+            loteProveedorErrs.length > 0 ||
             fechaIngresoErrs.length > 0 ||
-            fechaCaducidadErrs.length > 0 ||
             cantidadErrs.length > 0 ||
-            totalEnvasesErrs.length > 0
+            numeroContenedoresErrs.length > 0
         ) {
             setProductErrors({
                 stockCatalogueId: stockCatalogueIdErrs,
                 productStatusId: productStatusIdErrs,
+                unitOfMeasurementId: unitOfMeasurementIdErrs,
+                warehouseTypeId: warehouseTypeIdErrs,
+                nombre: nombreErrs,
+                codigoProducto: codigoProductoErrs,
+                numeroSerie: [],
                 lote: loteErrs,
-                loteProveedor: [],
+                loteProveedor: loteProveedorErrs,
                 fabricante: [],
                 distribuidor: [],
                 fechaIngreso: fechaIngresoErrs,
-                fechaCaducidad: fechaCaducidadErrs,
+                fechaCaducidad: [],
+                fechaReanalisis: [],
                 cantidad: cantidadErrs,
-                totalEnvases: totalEnvasesErrs,
+                numeroAnalisis: [],
+                numeroContenedores: numeroContenedoresErrs,
             })
             alertRef.current?.show('Atención', 'Por favor corrija los errores en el formulario.', 'warning')
             return
@@ -539,17 +643,26 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
         try {
             setIsSaving(true)
 
+            const cantidadValue = Number(newProduct.cantidad)
             const productData = {
                 stockCatalogueId: Number(newProduct.stockCatalogueId),
                 productStatusId: Number(newProduct.productStatusId),
+                unitOfMeasurementId: newProduct.unitOfMeasurementId ? Number(newProduct.unitOfMeasurementId) : null,
+                warehouseTypeId: newProduct.warehouseTypeId ? Number(newProduct.warehouseTypeId) : null,
+                nombre: newProduct.nombre.trim(),
+                codigoProducto: newProduct.codigoProducto.trim() || null,
+                numeroSerie: newProduct.numeroSerie.trim() || null,
                 lote: newProduct.lote.trim(),
                 loteProveedor: newProduct.loteProveedor.trim() || null,
                 fabricante: newProduct.fabricante.trim() || null,
                 distribuidor: newProduct.distribuidor.trim() || null,
                 fechaIngreso: newProduct.fechaIngreso.trim() || null,
                 fechaCaducidad: newProduct.fechaCaducidad.trim() || null,
-                cantidad: Number(newProduct.cantidad),
-                totalEnvases: Number(newProduct.totalEnvases),
+                reanalisis: newProduct.fechaReanalisis.trim() || null,
+                cantidad: cantidadValue,
+                cantidadTotal: cantidadValue,
+                numeroAnalisis: newProduct.numeroAnalisis.trim() || null,
+                numeroContenedores: Number(newProduct.numeroContenedores),
             }
 
             await createProduct(productData)
@@ -564,18 +677,25 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                 const { result, title } = error.response.data
                 alertRef.current?.show('Error', title || 'Error al crear producto', 'error')
 
-                if (result && Array.isArray(result) && result.length > 0) {
+                if (result && Array.isArray(result) && result?.length > 0) {
                     const newFieldErrors = {
                         stockCatalogueId: [],
                         productStatusId: [],
+                        unitOfMeasurementId: [],
+                        warehouseTypeId: [],
+                        nombre: [],
+                        codigoProducto: [],
+                        numeroSerie: [],
                         lote: [],
                         loteProveedor: [],
                         fabricante: [],
                         distribuidor: [],
                         fechaIngreso: [],
                         fechaCaducidad: [],
+                        fechaReanalisis: [],
                         cantidad: [],
-                        totalEnvases: [],
+                        numeroAnalisis: [],
+                        numeroContenedores: [],
                     }
                     result.forEach((validationError) => {
                         const field = validationError.field
@@ -598,21 +718,30 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
         return (
             productErrors.stockCatalogueId.length > 0 ||
             productErrors.productStatusId.length > 0 ||
+            productErrors.unitOfMeasurementId.length > 0 ||
+            productErrors.warehouseTypeId.length > 0 ||
+            productErrors.nombre.length > 0 ||
+            productErrors.codigoProducto.length > 0 ||
             productErrors.lote.length > 0 ||
+            productErrors.loteProveedor.length > 0 ||
             productErrors.fechaIngreso.length > 0 ||
-            productErrors.fechaCaducidad.length > 0 ||
             productErrors.cantidad.length > 0 ||
-            productErrors.totalEnvases.length > 0 ||
+            productErrors.numeroContenedores.length > 0 ||
             !newProduct.stockCatalogueId ||
             !newProduct.productStatusId ||
+            !newProduct.unitOfMeasurementId ||
+            !newProduct.warehouseTypeId ||
+            !newProduct.nombre.trim() ||
+            !newProduct.codigoProducto.trim() ||
             !newProduct.lote.trim() ||
+            !newProduct.loteProveedor.trim() ||
             !newProduct.fechaIngreso ||
-            !newProduct.fechaCaducidad ||
             !newProduct.cantidad ||
-            !newProduct.totalEnvases
+            !newProduct.numeroContenedores
         )
     }
 
+    // ... return ( ...
     return (
         <>
             <Modalize ref={modalRef} {...MODAL_ANIMATION_PROPS} modalStyle={{ backgroundColor: colors.background }}>
@@ -665,6 +794,40 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                                 ) : null}
                             </View>
 
+                            {/* NOMBRE */}
+                            <TextField isRequired isInvalid={productErrors.nombre.length > 0}>
+                                <View className="flex-row justify-between items-center mb-2">
+                                    <TextField.Label className="text-foreground font-medium">Nombre</TextField.Label>
+                                    <Text className="text-muted-foreground text-xs">{newProduct.nombre.length} / 200</Text>
+                                </View>
+                                <TextField.Input
+                                    colors={{
+                                        blurBackground: colors.accentSoft,
+                                        focusBackground: colors.surface2,
+                                        blurBorder: productErrors.nombre.length > 0 ? colors.danger : colors.accentSoft,
+                                        focusBorder: productErrors.nombre.length > 0 ? colors.danger : colors.surface2,
+                                    }}
+                                    placeholder="Nombre del producto"
+                                    value={newProduct.nombre}
+                                    onChangeText={(text) => handleInputChange('nombre', text)}
+                                    cursorColor={colors.accent}
+                                    selectionHandleColor={colors.accent}
+                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                    maxLength={200}
+                                >
+                                    <TextField.InputEndContent>
+                                        {productErrors.nombre.length === 0 && newProduct.nombre.trim() ? (
+                                            <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                        ) : productErrors.nombre.length > 0 ? (
+                                            <Ionicons name="close" size={24} color={colors.danger} />
+                                        ) : null}
+                                    </TextField.InputEndContent>
+                                </TextField.Input>
+                                {productErrors.nombre.length > 0 ? (
+                                    <TextField.ErrorMessage>{productErrors.nombre.join('\n')}</TextField.ErrorMessage>
+                                ) : undefined}
+                            </TextField>
+
                             {/* LOTE */}
                             <TextField isRequired isInvalid={productErrors.lote.length > 0}>
                                 <View className="flex-row justify-between items-center mb-2">
@@ -697,70 +860,190 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                                 {productErrors.lote.length > 0 ? <TextField.ErrorMessage>{productErrors.lote.join('\n')}</TextField.ErrorMessage> : undefined}
                             </TextField>
 
+                            {/* CÓDIGO PRODUCTO */}
+                            <TextField isRequired isInvalid={productErrors.codigoProducto.length > 0}>
+                                <View className="flex-row justify-between items-center mb-2">
+                                    <TextField.Label className="text-foreground font-medium">Código del producto</TextField.Label>
+                                    <Text className="text-muted-foreground text-xs">{newProduct.codigoProducto.length} / 50</Text>
+                                </View>
+                                <TextField.Input
+                                    colors={{
+                                        blurBackground: colors.accentSoft,
+                                        focusBackground: colors.surface2,
+                                        blurBorder: productErrors.codigoProducto.length > 0 ? colors.danger : colors.accentSoft,
+                                        focusBorder: productErrors.codigoProducto.length > 0 ? colors.danger : colors.surface2,
+                                    }}
+                                    placeholder="Código del producto"
+                                    value={newProduct.codigoProducto}
+                                    onChangeText={(text) => handleInputChange('codigoProducto', text)}
+                                    cursorColor={colors.accent}
+                                    selectionHandleColor={colors.accent}
+                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                    maxLength={50}
+                                >
+                                    <TextField.InputEndContent>
+                                        {productErrors.codigoProducto.length === 0 && newProduct.codigoProducto.trim() ? (
+                                            <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                        ) : productErrors.codigoProducto.length > 0 ? (
+                                            <Ionicons name="close" size={24} color={colors.danger} />
+                                        ) : null}
+                                    </TextField.InputEndContent>
+                                </TextField.Input>
+                                {productErrors.codigoProducto.length > 0 ? (
+                                    <TextField.ErrorMessage>{productErrors.codigoProducto.join('\n')}</TextField.ErrorMessage>
+                                ) : undefined}
+                            </TextField>
+
+                            {/* NÚMERO DE SERIE */}
+                            <TextField isInvalid={productErrors.numeroSerie.length > 0}>
+                                <View className="flex-row justify-between items-center mb-2">
+                                    <TextField.Label className="text-foreground font-medium">Número de serie (Opcional)</TextField.Label>
+                                    <Text className="text-muted-foreground text-xs">{newProduct.numeroSerie.length} / 100</Text>
+                                </View>
+                                <TextField.Input
+                                    colors={{
+                                        blurBackground: colors.accentSoft,
+                                        focusBackground: colors.surface2,
+                                        blurBorder: productErrors.numeroSerie.length > 0 ? colors.danger : colors.accentSoft,
+                                        focusBorder: productErrors.numeroSerie.length > 0 ? colors.danger : colors.surface2,
+                                    }}
+                                    placeholder="Número de serie"
+                                    value={newProduct.numeroSerie}
+                                    onChangeText={(text) => handleInputChange('numeroSerie', text)}
+                                    cursorColor={colors.accent}
+                                    selectionHandleColor={colors.accent}
+                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                    maxLength={100}
+                                />
+                                {productErrors.numeroSerie.length > 0 ? (
+                                    <TextField.ErrorMessage>{productErrors.numeroSerie.join('\n')}</TextField.ErrorMessage>
+                                ) : undefined}
+                            </TextField>
+
                             {/* FECHA INGRESO */}
                             <TextField isRequired isInvalid={productErrors.fechaIngreso.length > 0}>
                                 <TextField.Label className="text-foreground font-medium mb-2">Fecha de ingreso</TextField.Label>
-                                <TextField.Input
-                                    colors={{
-                                        blurBackground: colors.accentSoft,
-                                        focusBackground: colors.surface2,
-                                        blurBorder: productErrors.fechaIngreso.length > 0 ? colors.danger : colors.accentSoft,
-                                        focusBorder: productErrors.fechaIngreso.length > 0 ? colors.danger : colors.surface2,
-                                    }}
-                                    placeholder="YYYY-MM-DD"
-                                    value={newProduct.fechaIngreso}
-                                    onChangeText={(text) => handleInputChange('fechaIngreso', text)}
-                                    cursorColor={colors.accent}
-                                    selectionHandleColor={colors.accent}
-                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                >
-                                    <TextField.InputEndContent>
-                                        {productErrors.fechaIngreso.length === 0 && newProduct.fechaIngreso ? (
-                                            <Ionicons name="checkmark" size={24} color={colors.accent} />
-                                        ) : productErrors.fechaIngreso.length > 0 ? (
-                                            <Ionicons name="close" size={24} color={colors.danger} />
-                                        ) : null}
-                                    </TextField.InputEndContent>
-                                </TextField.Input>
+                                <Pressable onPress={() => setShowDatePickerIngreso(true)}>
+                                    <View pointerEvents="none">
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: productErrors.fechaIngreso.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: productErrors.fechaIngreso.length > 0 ? colors.danger : colors.surface2,
+                                            }}
+                                            placeholder="12/DIC/2025"
+                                            value={newProduct.fechaIngreso ? formatDateStringToShort(newProduct.fechaIngreso) : ''}
+                                            editable={false}
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                        >
+                                            <TextField.InputEndContent>
+                                                <Ionicons name="calendar-outline" size={24} color={colors.accent} />
+                                            </TextField.InputEndContent>
+                                        </TextField.Input>
+                                    </View>
+                                </Pressable>
                                 {productErrors.fechaIngreso.length > 0 ? (
                                     <TextField.ErrorMessage>{productErrors.fechaIngreso.join('\n')}</TextField.ErrorMessage>
                                 ) : undefined}
+                                {showDatePickerIngreso && (
+                                    <DateTimePicker
+                                        testID="dateTimePickerIngreso"
+                                        value={newProduct.fechaIngreso ? new Date(newProduct.fechaIngreso) : new Date()}
+                                        mode="date"
+                                        is24Hour={true}
+                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                        onChange={(event, selectedDate) => onDateChange('ingreso', event, selectedDate)}
+                                    />
+                                )}
                             </TextField>
 
                             {/* FECHA CADUCIDAD */}
-                            <TextField isRequired isInvalid={productErrors.fechaCaducidad.length > 0}>
+                            <TextField isInvalid={productErrors.fechaCaducidad.length > 0}>
                                 <TextField.Label className="text-foreground font-medium mb-2">Fecha de caducidad</TextField.Label>
-                                <TextField.Input
-                                    colors={{
-                                        blurBackground: colors.accentSoft,
-                                        focusBackground: colors.surface2,
-                                        blurBorder: productErrors.fechaCaducidad.length > 0 ? colors.danger : colors.accentSoft,
-                                        focusBorder: productErrors.fechaCaducidad.length > 0 ? colors.danger : colors.surface2,
-                                    }}
-                                    placeholder="YYYY-MM-DD"
-                                    value={newProduct.fechaCaducidad}
-                                    onChangeText={(text) => handleInputChange('fechaCaducidad', text)}
-                                    cursorColor={colors.accent}
-                                    selectionHandleColor={colors.accent}
-                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                >
-                                    <TextField.InputEndContent>
-                                        {productErrors.fechaCaducidad.length === 0 && newProduct.fechaCaducidad ? (
-                                            <Ionicons name="checkmark" size={24} color={colors.accent} />
-                                        ) : productErrors.fechaCaducidad.length > 0 ? (
-                                            <Ionicons name="close" size={24} color={colors.danger} />
-                                        ) : null}
-                                    </TextField.InputEndContent>
-                                </TextField.Input>
+                                <Pressable onPress={() => setShowDatePickerCaducidad(true)}>
+                                    <View pointerEvents="none">
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: productErrors.fechaCaducidad.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: productErrors.fechaCaducidad.length > 0 ? colors.danger : colors.surface2,
+                                            }}
+                                            placeholder="12/DIC/2025"
+                                            value={newProduct.fechaCaducidad ? formatDateStringToShort(newProduct.fechaCaducidad) : ''}
+                                            editable={false}
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                        >
+                                            <TextField.InputEndContent>
+                                                <Ionicons name="calendar-outline" size={24} color={colors.accent} />
+                                            </TextField.InputEndContent>
+                                        </TextField.Input>
+                                    </View>
+                                </Pressable>
                                 {productErrors.fechaCaducidad.length > 0 ? (
                                     <TextField.ErrorMessage>{productErrors.fechaCaducidad.join('\n')}</TextField.ErrorMessage>
                                 ) : undefined}
+                                {showDatePickerCaducidad && (
+                                    <DateTimePicker
+                                        testID="dateTimePickerCaducidad"
+                                        value={newProduct.fechaCaducidad ? new Date(newProduct.fechaCaducidad) : new Date()}
+                                        mode="date"
+                                        is24Hour={true}
+                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                        onChange={(event, selectedDate) => onDateChange('caducidad', event, selectedDate)}
+                                    />
+                                )}
+                            </TextField>
+
+                            {/* FECHA REANÁLISIS */}
+                            <TextField isInvalid={productErrors.fechaReanalisis.length > 0}>
+                                <TextField.Label className="text-foreground font-medium mb-2">Fecha de reanálisis</TextField.Label>
+                                <Pressable onPress={() => setShowDatePickerReanalisis(true)}>
+                                    <View pointerEvents="none">
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: productErrors.fechaReanalisis.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: productErrors.fechaReanalisis.length > 0 ? colors.danger : colors.surface2,
+                                            }}
+                                            placeholder="12/DIC/2025"
+                                            value={newProduct.fechaReanalisis ? formatDateStringToShort(newProduct.fechaReanalisis) : ''}
+                                            editable={false}
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                        >
+                                            <TextField.InputEndContent>
+                                                <Ionicons name="calendar-outline" size={24} color={colors.accent} />
+                                            </TextField.InputEndContent>
+                                        </TextField.Input>
+                                    </View>
+                                </Pressable>
+                                {productErrors.fechaReanalisis.length > 0 ? (
+                                    <TextField.ErrorMessage>{productErrors.fechaReanalisis.join('\n')}</TextField.ErrorMessage>
+                                ) : undefined}
+                                {showDatePickerReanalisis && (
+                                    <DateTimePicker
+                                        testID="dateTimePickerReanalisis"
+                                        value={newProduct.fechaReanalisis ? new Date(newProduct.fechaReanalisis) : new Date()}
+                                        mode="date"
+                                        is24Hour={true}
+                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                        onChange={(event, selectedDate) => onDateChange('reanalisis', event, selectedDate)}
+                                    />
+                                )}
                             </TextField>
 
                             {/* LOTE PROVEEDOR */}
-                            <TextField isInvalid={productErrors.loteProveedor.length > 0}>
+                            <TextField isRequired isInvalid={productErrors.loteProveedor.length > 0}>
                                 <View className="flex-row justify-between items-center mb-2">
-                                    <TextField.Label className="text-foreground font-medium">Lote proveedor (Opcional)</TextField.Label>
+                                    <TextField.Label className="text-foreground font-medium">Lote de proveedor</TextField.Label>
                                     <Text className="text-muted-foreground text-xs">{newProduct.loteProveedor.length} / 100</Text>
                                 </View>
                                 <TextField.Input
@@ -835,9 +1118,41 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                                 ) : undefined}
                             </TextField>
 
-                            {/* CANTIDAD */}
+                            {/* UNIDAD DE MEDIDA */}
+                            <View>
+                                <Text className="text-foreground font-medium mb-2">
+                                    Unidad de medida <Text className="text-danger">*</Text>
+                                </Text>
+                                <TouchableOpacity onPress={() => unidadMedidaModalRef.current?.open()}>
+                                    <View className="w-full h-12 flex-row items-center justify-between px-4 rounded-lg bg-accent-soft">
+                                        <Text className="text-foreground font-medium">{getUnitOfMeasurementName(newProduct.unitOfMeasurementId)}</Text>
+                                        <Ionicons name="chevron-down-outline" size={24} color={colors.accent} />
+                                    </View>
+                                </TouchableOpacity>
+                                {productErrors.unitOfMeasurementId.length > 0 ? (
+                                    <Text className="text-danger text-sm mt-1">{productErrors.unitOfMeasurementId.join('\n')}</Text>
+                                ) : null}
+                            </View>
+
+                            {/* TIPO DE ALMACÉN */}
+                            <View>
+                                <Text className="text-foreground font-medium mb-2">
+                                    Tipo de almacén <Text className="text-danger">*</Text>
+                                </Text>
+                                <TouchableOpacity onPress={() => warehouseTypeModalRef.current?.open()}>
+                                    <View className="w-full h-12 flex-row items-center justify-between px-4 rounded-lg bg-accent-soft">
+                                        <Text className="text-foreground font-medium">{getWarehouseTypeName(newProduct.warehouseTypeId)}</Text>
+                                        <Ionicons name="chevron-down-outline" size={24} color={colors.accent} />
+                                    </View>
+                                </TouchableOpacity>
+                                {productErrors.warehouseTypeId.length > 0 ? (
+                                    <Text className="text-danger text-sm mt-1">{productErrors.warehouseTypeId.join('\n')}</Text>
+                                ) : null}
+                            </View>
+
+                            {/* CANTIDAD TOTAL */}
                             <TextField isRequired isInvalid={productErrors.cantidad.length > 0}>
-                                <TextField.Label className="text-foreground font-medium mb-2">Cantidad (ml/g por envase)</TextField.Label>
+                                <TextField.Label className="text-foreground font-medium mb-2">Cantidad total</TextField.Label>
                                 <TextField.Input
                                     colors={{
                                         blurBackground: colors.accentSoft,
@@ -866,34 +1181,60 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                                 ) : undefined}
                             </TextField>
 
-                            {/* TOTAL ENVASES */}
-                            <TextField isRequired isInvalid={productErrors.totalEnvases.length > 0}>
-                                <TextField.Label className="text-foreground font-medium mb-2">Total de envases</TextField.Label>
+                            {/* NÚMERO DE CONTENEDORES */}
+                            <TextField isRequired isInvalid={productErrors.numeroContenedores.length > 0}>
+                                <TextField.Label className="text-foreground font-medium mb-2">Número de contenedores</TextField.Label>
                                 <TextField.Input
                                     colors={{
                                         blurBackground: colors.accentSoft,
                                         focusBackground: colors.surface2,
-                                        blurBorder: productErrors.totalEnvases.length > 0 ? colors.danger : colors.accentSoft,
-                                        focusBorder: productErrors.totalEnvases.length > 0 ? colors.danger : colors.surface2,
+                                        blurBorder: productErrors.numeroContenedores.length > 0 ? colors.danger : colors.accentSoft,
+                                        focusBorder: productErrors.numeroContenedores.length > 0 ? colors.danger : colors.surface2,
                                     }}
                                     placeholder="Ej: 10"
-                                    value={newProduct.totalEnvases}
-                                    onChangeText={(text) => handleInputChange('totalEnvases', text)}
+                                    value={newProduct.numeroContenedores}
+                                    onChangeText={(text) => handleInputChange('numeroContenedores', text)}
                                     keyboardType="numeric"
                                     cursorColor={colors.accent}
                                     selectionHandleColor={colors.accent}
                                     selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
                                 >
                                     <TextField.InputEndContent>
-                                        {productErrors.totalEnvases.length === 0 && newProduct.totalEnvases ? (
+                                        {productErrors.numeroContenedores.length === 0 && newProduct.numeroContenedores ? (
                                             <Ionicons name="checkmark" size={24} color={colors.accent} />
-                                        ) : productErrors.totalEnvases.length > 0 ? (
+                                        ) : productErrors.numeroContenedores.length > 0 ? (
                                             <Ionicons name="close" size={24} color={colors.danger} />
                                         ) : null}
                                     </TextField.InputEndContent>
                                 </TextField.Input>
-                                {productErrors.totalEnvases.length > 0 ? (
-                                    <TextField.ErrorMessage>{productErrors.totalEnvases.join('\n')}</TextField.ErrorMessage>
+                                {productErrors.numeroContenedores.length > 0 ? (
+                                    <TextField.ErrorMessage>{productErrors.numeroContenedores.join('\n')}</TextField.ErrorMessage>
+                                ) : undefined}
+                            </TextField>
+
+                            {/* NÚMERO DE ANÁLISIS */}
+                            <TextField isInvalid={productErrors.numeroAnalisis.length > 0}>
+                                <View className="flex-row justify-between items-center mb-2">
+                                    <TextField.Label className="text-foreground font-medium">Número de análisis (Opcional)</TextField.Label>
+                                    <Text className="text-muted-foreground text-xs">{newProduct.numeroAnalisis.length} / 50</Text>
+                                </View>
+                                <TextField.Input
+                                    colors={{
+                                        blurBackground: colors.accentSoft,
+                                        focusBackground: colors.surface2,
+                                        blurBorder: productErrors.numeroAnalisis.length > 0 ? colors.danger : colors.accentSoft,
+                                        focusBorder: productErrors.numeroAnalisis.length > 0 ? colors.danger : colors.surface2,
+                                    }}
+                                    placeholder="Número de análisis"
+                                    value={newProduct.numeroAnalisis}
+                                    onChangeText={(text) => handleInputChange('numeroAnalisis', text)}
+                                    cursorColor={colors.accent}
+                                    selectionHandleColor={colors.accent}
+                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                    maxLength={50}
+                                />
+                                {productErrors.numeroAnalisis.length > 0 ? (
+                                    <TextField.ErrorMessage>{productErrors.numeroAnalisis.join('\n')}</TextField.ErrorMessage>
                                 ) : undefined}
                             </TextField>
                         </View>
@@ -992,6 +1333,108 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                     </ScrollView>
                 </View>
             </Modalize>
+
+            {/* Modal de selección de unidad de medida */}
+            <Modalize ref={unidadMedidaModalRef} {...MODAL_ANIMATION_PROPS} modalStyle={{ backgroundColor: colors.background }}>
+                <View className="px-[6%] pt-[9%] pb-[6%]" style={{ maxHeight: MODAL_MAX_HEIGHT }}>
+                    <View className="flex gap-0 mb-8">
+                        <View className="flex flex-row justify-between items-center">
+                            <Text className="text-foreground text-2xl font-medium">Seleccionar unidad</Text>
+                            <Button isIconOnly className="bg-transparent shrink-0" onPress={() => unidadMedidaModalRef.current?.close()}>
+                                <Ionicons name="close-outline" size={24} color={colors.foreground} />
+                            </Button>
+                        </View>
+                        <Text className="text-muted-foreground">Seleccione la unidad de medida</Text>
+                    </View>
+                    <ScrollView style={{ maxHeight: height * 0.5 }} showsVerticalScrollIndicator={false}>
+                        <View>
+                            <View className="mb-0">
+                                <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Unidades disponibles</Text>
+                            </View>
+                            <RadioGroup
+                                value={String(newProduct.unitOfMeasurementId || '')}
+                                onValueChange={(val) => {
+                                    handleInputChange('unitOfMeasurementId', val)
+                                    unidadMedidaModalRef.current?.close()
+                                }}
+                            >
+                                {Array.isArray(unitsOfMeasurement) && unitsOfMeasurement.length > 0 ? (
+                                    unitsOfMeasurement.map((unit) => (
+                                        <RadioGroup.Item
+                                            key={unit.id}
+                                            value={String(unit.id)}
+                                            className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
+                                        >
+                                            <View className="flex-1">
+                                                <RadioGroup.Title className="text-foreground font-medium text-lg">
+                                                    {unit.name} ({unit.code})
+                                                </RadioGroup.Title>
+                                                {unit.description && <Text className="text-muted-foreground text-sm">{unit.description}</Text>}
+                                            </View>
+                                            <RadioGroup.Indicator />
+                                        </RadioGroup.Item>
+                                    ))
+                                ) : (
+                                    <View className="p-4 items-center">
+                                        <Text className="text-muted-foreground">No hay unidades disponibles</Text>
+                                    </View>
+                                )}
+                            </RadioGroup>
+                        </View>
+                    </ScrollView>
+                </View>
+            </Modalize>
+
+            {/* Modal de selección de tipo de almacén */}
+            <Modalize ref={warehouseTypeModalRef} {...MODAL_ANIMATION_PROPS} modalStyle={{ backgroundColor: colors.background }}>
+                <View className="px-[6%] pt-[9%] pb-[6%]" style={{ maxHeight: MODAL_MAX_HEIGHT }}>
+                    <View className="flex gap-0 mb-8">
+                        <View className="flex flex-row justify-between items-center">
+                            <Text className="text-foreground text-2xl font-medium">Seleccionar tipo</Text>
+                            <Button isIconOnly className="bg-transparent shrink-0" onPress={() => warehouseTypeModalRef.current?.close()}>
+                                <Ionicons name="close-outline" size={24} color={colors.foreground} />
+                            </Button>
+                        </View>
+                        <Text className="text-muted-foreground">Seleccione el tipo de almacén</Text>
+                    </View>
+                    <ScrollView style={{ maxHeight: height * 0.5 }} showsVerticalScrollIndicator={false}>
+                        <View>
+                            <View className="mb-0">
+                                <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Tipos disponibles</Text>
+                            </View>
+                            <RadioGroup
+                                value={String(newProduct.warehouseTypeId || '')}
+                                onValueChange={(val) => {
+                                    handleInputChange('warehouseTypeId', val)
+                                    warehouseTypeModalRef.current?.close()
+                                }}
+                            >
+                                {Array.isArray(warehouseTypes) && warehouseTypes.length > 0 ? (
+                                    warehouseTypes.map((wt) => (
+                                        <RadioGroup.Item
+                                            key={wt.id}
+                                            value={String(wt.id)}
+                                            className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
+                                        >
+                                            <View className="flex-1">
+                                                <RadioGroup.Title className="text-foreground font-medium text-lg">
+                                                    {wt.code} - {wt.name}
+                                                </RadioGroup.Title>
+                                                {wt.description && <Text className="text-muted-foreground text-sm">{wt.description}</Text>}
+                                            </View>
+                                            <RadioGroup.Indicator />
+                                        </RadioGroup.Item>
+                                    ))
+                                ) : (
+                                    <View className="p-4 items-center">
+                                        <Text className="text-muted-foreground">No hay tipos disponibles</Text>
+                                    </View>
+                                )}
+                            </RadioGroup>
+                        </View>
+                    </ScrollView>
+                </View>
+            </Modalize>
         </>
     )
 }
@@ -999,45 +1442,81 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
 // =====================================================================
 // MODAL DE EDICIÓN DE PRODUCTO (ESQUELETO)
 // =====================================================================
-const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef, catalogues, statuses }) => {
+const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef, catalogues, statuses, unitsOfMeasurement, warehouseTypes }) => {
     const { colors } = useTheme()
     const catalogueModalRef = useRef(null)
     const statusModalRef = useRef(null)
+    const unidadMedidaModalRef = useRef(null)
+    const warehouseTypeModalRef = useRef(null)
     const [isSaving, setIsSaving] = useState(false)
+    const [showDatePickerIngreso, setShowDatePickerIngreso] = useState(false)
+    const [showDatePickerCaducidad, setShowDatePickerCaducidad] = useState(false)
+    const [showDatePickerReanalisis, setShowDatePickerReanalisis] = useState(false)
+
+    // Inicializar fechas con fecha actual
+    const getTodayDateString = () => {
+        const today = new Date()
+        return formatDateToLocalString(today)
+    }
+
     const [editedProduct, setEditedProduct] = useState({
         id: null,
         stockCatalogueId: '',
         productStatusId: '',
+        unitOfMeasurementId: '',
+        warehouseTypeId: '',
+        nombre: '',
+        codigoProducto: '',
+        numeroSerie: '',
         lote: '',
         loteProveedor: '',
         fabricante: '',
         distribuidor: '',
         fechaIngreso: '',
         fechaCaducidad: '',
-        reanalisis: '',
+        fechaReanalisis: '',
+        cantidad: '',
+        numeroAnalisis: '',
+        numeroContenedores: '',
     })
     const [productErrors, setProductErrors] = useState({
         stockCatalogueId: [],
         productStatusId: [],
+        unitOfMeasurementId: [],
+        warehouseTypeId: [],
+        nombre: [],
+        codigoProducto: [],
+        numeroSerie: [],
         lote: [],
         loteProveedor: [],
         fabricante: [],
         distribuidor: [],
         fechaIngreso: [],
         fechaCaducidad: [],
-        reanalisis: [],
+        fechaReanalisis: [],
+        cantidad: [],
+        numeroAnalisis: [],
+        numeroContenedores: [],
     })
 
     const validators = {
         stockCatalogueId: [required],
         productStatusId: [required],
+        unitOfMeasurementId: [required],
+        warehouseTypeId: [required],
+        nombre: [required],
+        codigoProducto: [required],
+        numeroSerie: [],
         lote: [required],
-        loteProveedor: [],
+        loteProveedor: [required],
         fabricante: [],
         distribuidor: [],
         fechaIngreso: [required, validDate],
-        fechaCaducidad: [required, validDate],
-        reanalisis: [validDate],
+        fechaCaducidad: [],
+        fechaReanalisis: [],
+        cantidad: [required, validPositiveNumber],
+        numeroAnalisis: [],
+        numeroContenedores: [required, validPositiveNumber],
     }
 
     const runValidators = (value, fns) => fns.map((fn) => fn(value)).filter(Boolean)
@@ -1049,35 +1528,80 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
         setProductErrors((prev) => ({ ...prev, [field]: errs }))
     }
 
+    const onDateChange = (field, event, selectedDate) => {
+        if (Platform.OS === 'android') {
+            if (field === 'ingreso') setShowDatePickerIngreso(false)
+            if (field === 'caducidad') setShowDatePickerCaducidad(false)
+            if (field === 'reanalisis') setShowDatePickerReanalisis(false)
+        }
+
+        if (event.type === 'set' && selectedDate) {
+            // Usar formato local para evitar problemas de zona horaria
+            const formattedDate = formatDateToLocalString(selectedDate)
+            if (field === 'ingreso') {
+                handleInputChange('fechaIngreso', formattedDate)
+            } else if (field === 'caducidad') {
+                handleInputChange('fechaCaducidad', formattedDate)
+            } else if (field === 'reanalisis') {
+                handleInputChange('fechaReanalisis', formattedDate)
+            }
+        } else {
+            if (field === 'ingreso') setShowDatePickerIngreso(false)
+            if (field === 'caducidad') setShowDatePickerCaducidad(false)
+            if (field === 'reanalisis') setShowDatePickerReanalisis(false)
+        }
+    }
+
     useEffect(() => {
         if (product) {
             setEditedProduct({
                 id: product.id,
                 stockCatalogueId: product.stockCatalogueId || '',
                 productStatusId: product.productStatusId || '',
+                unitOfMeasurementId: product.unitOfMeasurementId || '',
+                warehouseTypeId: product.warehouseTypeId || '',
+                nombre: product.nombre || '',
+                codigoProducto: product.codigoProducto || product.codigo || '',
+                numeroSerie: product.numeroSerie || '',
                 lote: product.lote || '',
                 loteProveedor: product.loteProveedor || '',
                 fabricante: product.fabricante || '',
                 distribuidor: product.distribuidor || '',
-                fechaIngreso: product.fecha ? product.fecha.split('T')[0] : '',
-                fechaCaducidad: product.caducidad ? product.caducidad.split('T')[0] : '',
-                reanalisis: product.reanalisis ? product.reanalisis.split('T')[0] : '',
+                fechaIngreso: product.fecha ? product.fecha.split('T')[0] : getTodayDateString(),
+                fechaCaducidad: product.caducidad ? product.caducidad.split('T')[0] : getTodayDateString(),
+                fechaReanalisis: product.reanalisis ? product.reanalisis.split('T')[0] : getTodayDateString(),
+                cantidad: product.cantidadTotal ? String(product.cantidadTotal) : '',
+                numeroAnalisis: product.numeroAnalisis || '',
+                numeroContenedores: product.numeroContenedores ? String(product.numeroContenedores) : '',
             })
             setProductErrors({
                 stockCatalogueId: [],
                 productStatusId: [],
+                unitOfMeasurementId: [],
+                warehouseTypeId: [],
+                nombre: [],
+                codigoProducto: [],
+                numeroSerie: [],
                 lote: [],
                 loteProveedor: [],
                 fabricante: [],
                 distribuidor: [],
                 fechaIngreso: [],
                 fechaCaducidad: [],
-                reanalisis: [],
+                fechaReanalisis: [],
+                cantidad: [],
+                numeroAnalisis: [],
+                numeroContenedores: [],
             })
         }
     }, [product])
 
-    const onClose = () => modalRef.current?.close()
+    const onClose = () => {
+        modalRef.current?.close()
+        setShowDatePickerIngreso(false)
+        setShowDatePickerCaducidad(false)
+        setShowDatePickerReanalisis(false)
+    }
 
     const getCatalogueName = (id) => {
         const cat = catalogues.find((c) => c.id === Number(id))
@@ -1089,31 +1613,63 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
         return status ? status.name : 'Seleccionar estado'
     }
 
+    const getUnitOfMeasurementName = (id) => {
+        if (!id) return 'Seleccionar unidad'
+        const unit = unitsOfMeasurement.find((u) => u.id === Number(id))
+        return unit ? `${unit.name} (${unit.code})` : 'Seleccionar unidad'
+    }
+
+    const getWarehouseTypeName = (id) => {
+        if (!id) return 'Seleccionar tipo'
+        const wt = warehouseTypes.find((w) => w.id === Number(id))
+        return wt ? `${wt.code} - ${wt.name}` : 'Seleccionar tipo'
+    }
+
     const handleSave = async () => {
         // Validación final
         const stockCatalogueIdErrs = runValidators(editedProduct.stockCatalogueId, validators.stockCatalogueId)
         const productStatusIdErrs = runValidators(editedProduct.productStatusId, validators.productStatusId)
+        const unitOfMeasurementIdErrs = runValidators(editedProduct.unitOfMeasurementId, validators.unitOfMeasurementId)
+        const warehouseTypeIdErrs = runValidators(editedProduct.warehouseTypeId, validators.warehouseTypeId)
+        const nombreErrs = runValidators(editedProduct.nombre, validators.nombre)
+        const codigoProductoErrs = runValidators(editedProduct.codigoProducto, validators.codigoProducto)
         const loteErrs = runValidators(editedProduct.lote, validators.lote)
+        const loteProveedorErrs = runValidators(editedProduct.loteProveedor, validators.loteProveedor)
         const fechaIngresoErrs = runValidators(editedProduct.fechaIngreso, validators.fechaIngreso)
-        const fechaCaducidadErrs = runValidators(editedProduct.fechaCaducidad, validators.fechaCaducidad)
+        const cantidadErrs = runValidators(editedProduct.cantidad, validators.cantidad)
+        const numeroContenedoresErrs = runValidators(editedProduct.numeroContenedores, validators.numeroContenedores)
 
         if (
             stockCatalogueIdErrs.length > 0 ||
             productStatusIdErrs.length > 0 ||
+            unitOfMeasurementIdErrs.length > 0 ||
+            warehouseTypeIdErrs.length > 0 ||
+            nombreErrs.length > 0 ||
+            codigoProductoErrs.length > 0 ||
             loteErrs.length > 0 ||
+            loteProveedorErrs.length > 0 ||
             fechaIngresoErrs.length > 0 ||
-            fechaCaducidadErrs.length > 0
+            cantidadErrs.length > 0 ||
+            numeroContenedoresErrs.length > 0
         ) {
             setProductErrors({
                 stockCatalogueId: stockCatalogueIdErrs,
                 productStatusId: productStatusIdErrs,
+                unitOfMeasurementId: unitOfMeasurementIdErrs,
+                warehouseTypeId: warehouseTypeIdErrs,
+                nombre: nombreErrs,
+                codigoProducto: codigoProductoErrs,
+                numeroSerie: [],
                 lote: loteErrs,
-                loteProveedor: [],
+                loteProveedor: loteProveedorErrs,
                 fabricante: [],
                 distribuidor: [],
                 fechaIngreso: fechaIngresoErrs,
-                fechaCaducidad: fechaCaducidadErrs,
-                reanalisis: [],
+                fechaCaducidad: [],
+                fechaReanalisis: [],
+                cantidad: cantidadErrs,
+                numeroAnalisis: [],
+                numeroContenedores: numeroContenedoresErrs,
             })
             alertRef.current?.show('Atención', 'Por favor corrija los errores en el formulario.', 'warning')
             return
@@ -1121,17 +1677,26 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
 
         try {
             setIsSaving(true)
+            const cantidadValue = Number(editedProduct.cantidad)
             const productData = {
                 id: editedProduct.id,
                 stockCatalogueId: Number(editedProduct.stockCatalogueId),
                 productStatusId: Number(editedProduct.productStatusId),
+                unitOfMeasurementId: editedProduct.unitOfMeasurementId ? Number(editedProduct.unitOfMeasurementId) : null,
+                warehouseTypeId: editedProduct.warehouseTypeId ? Number(editedProduct.warehouseTypeId) : null,
+                nombre: editedProduct.nombre.trim(),
+                codigoProducto: editedProduct.codigoProducto.trim() || null,
+                numeroSerie: editedProduct.numeroSerie.trim() || null,
                 lote: editedProduct.lote.trim(),
                 loteProveedor: editedProduct.loteProveedor.trim() || null,
                 fabricante: editedProduct.fabricante.trim() || null,
                 distribuidor: editedProduct.distribuidor.trim() || null,
                 fechaIngreso: editedProduct.fechaIngreso.trim() || null,
                 fechaCaducidad: editedProduct.fechaCaducidad.trim() || null,
-                reanalisis: editedProduct.reanalisis.trim() || null,
+                reanalisis: editedProduct.fechaReanalisis.trim() || null,
+                cantidadTotal: cantidadValue,
+                numeroAnalisis: editedProduct.numeroAnalisis.trim() || null,
+                numeroContenedores: Number(editedProduct.numeroContenedores),
             }
             const response = await updateProduct(productData)
             if (response.type === 'SUCCESS') {
@@ -1152,13 +1717,21 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                     const newFieldErrors = {
                         stockCatalogueId: [],
                         productStatusId: [],
+                        unitOfMeasurementId: [],
+                        warehouseTypeId: [],
+                        nombre: [],
+                        codigoProducto: [],
+                        numeroSerie: [],
                         lote: [],
                         loteProveedor: [],
                         fabricante: [],
                         distribuidor: [],
                         fechaIngreso: [],
                         fechaCaducidad: [],
-                        reanalisis: [],
+                        fechaReanalisis: [],
+                        cantidad: [],
+                        numeroAnalisis: [],
+                        numeroContenedores: [],
                     }
                     result.forEach((validationError) => {
                         const field = validationError.field
@@ -1181,14 +1754,26 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
         return (
             productErrors.stockCatalogueId.length > 0 ||
             productErrors.productStatusId.length > 0 ||
+            productErrors.unitOfMeasurementId.length > 0 ||
+            productErrors.warehouseTypeId.length > 0 ||
+            productErrors.nombre.length > 0 ||
+            productErrors.codigoProducto.length > 0 ||
             productErrors.lote.length > 0 ||
+            productErrors.loteProveedor.length > 0 ||
             productErrors.fechaIngreso.length > 0 ||
-            productErrors.fechaCaducidad.length > 0 ||
+            productErrors.cantidad.length > 0 ||
+            productErrors.numeroContenedores.length > 0 ||
             !editedProduct.stockCatalogueId ||
             !editedProduct.productStatusId ||
+            !editedProduct.unitOfMeasurementId ||
+            !editedProduct.warehouseTypeId ||
+            !editedProduct.nombre.trim() ||
+            !editedProduct.codigoProducto.trim() ||
             !editedProduct.lote.trim() ||
+            !editedProduct.loteProveedor.trim() ||
             !editedProduct.fechaIngreso ||
-            !editedProduct.fechaCaducidad
+            !editedProduct.cantidad ||
+            !editedProduct.numeroContenedores
         )
     }
 
@@ -1246,6 +1831,40 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                                         ) : null}
                                     </View>
 
+                                    {/* NOMBRE */}
+                                    <TextField isRequired isInvalid={productErrors.nombre.length > 0}>
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <TextField.Label className="text-foreground font-medium">Nombre</TextField.Label>
+                                            <Text className="text-muted-foreground text-xs">{editedProduct.nombre.length} / 200</Text>
+                                        </View>
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: productErrors.nombre.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: productErrors.nombre.length > 0 ? colors.danger : colors.surface2,
+                                            }}
+                                            placeholder="Nombre del producto"
+                                            value={editedProduct.nombre}
+                                            onChangeText={(text) => handleInputChange('nombre', text)}
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                            maxLength={200}
+                                        >
+                                            <TextField.InputEndContent>
+                                                {productErrors.nombre.length === 0 && editedProduct.nombre.trim() ? (
+                                                    <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                                ) : productErrors.nombre.length > 0 ? (
+                                                    <Ionicons name="close" size={24} color={colors.danger} />
+                                                ) : null}
+                                            </TextField.InputEndContent>
+                                        </TextField.Input>
+                                        {productErrors.nombre.length > 0 ? (
+                                            <TextField.ErrorMessage>{productErrors.nombre.join('\n')}</TextField.ErrorMessage>
+                                        ) : undefined}
+                                    </TextField>
+
                                     {/* LOTE */}
                                     <TextField isRequired isInvalid={productErrors.lote.length > 0}>
                                         <View className="flex-row justify-between items-center mb-2">
@@ -1280,10 +1899,70 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                                         ) : undefined}
                                     </TextField>
 
-                                    {/* LOTE PROVEEDOR */}
-                                    <TextField isInvalid={productErrors.loteProveedor.length > 0}>
+                                    {/* CÓDIGO PRODUCTO */}
+                                    <TextField isRequired isInvalid={productErrors.codigoProducto.length > 0}>
                                         <View className="flex-row justify-between items-center mb-2">
-                                            <TextField.Label className="text-foreground font-medium">Lote proveedor (Opcional)</TextField.Label>
+                                            <TextField.Label className="text-foreground font-medium">Código del producto</TextField.Label>
+                                            <Text className="text-muted-foreground text-xs">{editedProduct.codigoProducto.length} / 50</Text>
+                                        </View>
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: productErrors.codigoProducto.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: productErrors.codigoProducto.length > 0 ? colors.danger : colors.surface2,
+                                            }}
+                                            placeholder="Código del producto"
+                                            value={editedProduct.codigoProducto}
+                                            onChangeText={(text) => handleInputChange('codigoProducto', text)}
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                            maxLength={50}
+                                        >
+                                            <TextField.InputEndContent>
+                                                {productErrors.codigoProducto.length === 0 && editedProduct.codigoProducto.trim() ? (
+                                                    <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                                ) : productErrors.codigoProducto.length > 0 ? (
+                                                    <Ionicons name="close" size={24} color={colors.danger} />
+                                                ) : null}
+                                            </TextField.InputEndContent>
+                                        </TextField.Input>
+                                        {productErrors.codigoProducto.length > 0 ? (
+                                            <TextField.ErrorMessage>{productErrors.codigoProducto.join('\n')}</TextField.ErrorMessage>
+                                        ) : undefined}
+                                    </TextField>
+
+                                    {/* NÚMERO DE SERIE */}
+                                    <TextField isInvalid={productErrors.numeroSerie.length > 0}>
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <TextField.Label className="text-foreground font-medium">Número de serie (Opcional)</TextField.Label>
+                                            <Text className="text-muted-foreground text-xs">{editedProduct.numeroSerie.length} / 100</Text>
+                                        </View>
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: productErrors.numeroSerie.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: productErrors.numeroSerie.length > 0 ? colors.danger : colors.surface2,
+                                            }}
+                                            placeholder="Número de serie"
+                                            value={editedProduct.numeroSerie}
+                                            onChangeText={(text) => handleInputChange('numeroSerie', text)}
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                            maxLength={100}
+                                        />
+                                        {productErrors.numeroSerie.length > 0 ? (
+                                            <TextField.ErrorMessage>{productErrors.numeroSerie.join('\n')}</TextField.ErrorMessage>
+                                        ) : undefined}
+                                    </TextField>
+
+                                    {/* LOTE PROVEEDOR */}
+                                    <TextField isRequired isInvalid={productErrors.loteProveedor.length > 0}>
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <TextField.Label className="text-foreground font-medium">Lote de proveedor</TextField.Label>
                                             <Text className="text-muted-foreground text-xs">{editedProduct.loteProveedor.length} / 100</Text>
                                         </View>
                                         <TextField.Input
@@ -1361,90 +2040,242 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                                     {/* FECHA INGRESO */}
                                     <TextField isRequired isInvalid={productErrors.fechaIngreso.length > 0}>
                                         <TextField.Label className="text-foreground font-medium mb-2">Fecha de ingreso</TextField.Label>
-                                        <TextField.Input
-                                            colors={{
-                                                blurBackground: colors.accentSoft,
-                                                focusBackground: colors.surface2,
-                                                blurBorder: productErrors.fechaIngreso.length > 0 ? colors.danger : colors.accentSoft,
-                                                focusBorder: productErrors.fechaIngreso.length > 0 ? colors.danger : colors.surface2,
-                                            }}
-                                            placeholder="YYYY-MM-DD"
-                                            value={editedProduct.fechaIngreso}
-                                            onChangeText={(text) => handleInputChange('fechaIngreso', text)}
-                                            cursorColor={colors.accent}
-                                            selectionHandleColor={colors.accent}
-                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                        >
-                                            <TextField.InputEndContent>
-                                                {productErrors.fechaIngreso.length === 0 && editedProduct.fechaIngreso ? (
-                                                    <Ionicons name="checkmark" size={24} color={colors.accent} />
-                                                ) : productErrors.fechaIngreso.length > 0 ? (
-                                                    <Ionicons name="close" size={24} color={colors.danger} />
-                                                ) : null}
-                                            </TextField.InputEndContent>
-                                        </TextField.Input>
+                                        <Pressable onPress={() => setShowDatePickerIngreso(true)}>
+                                            <View pointerEvents="none">
+                                                <TextField.Input
+                                                    colors={{
+                                                        blurBackground: colors.accentSoft,
+                                                        focusBackground: colors.surface2,
+                                                        blurBorder: productErrors.fechaIngreso.length > 0 ? colors.danger : colors.accentSoft,
+                                                        focusBorder: productErrors.fechaIngreso.length > 0 ? colors.danger : colors.surface2,
+                                                    }}
+                                                    placeholder="12/DIC/2025"
+                                                    value={editedProduct.fechaIngreso ? formatDateStringToShort(editedProduct.fechaIngreso) : ''}
+                                                    editable={false}
+                                                    cursorColor={colors.accent}
+                                                    selectionHandleColor={colors.accent}
+                                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                                >
+                                                    <TextField.InputEndContent>
+                                                        <Ionicons name="calendar-outline" size={24} color={colors.accent} />
+                                                    </TextField.InputEndContent>
+                                                </TextField.Input>
+                                            </View>
+                                        </Pressable>
                                         {productErrors.fechaIngreso.length > 0 ? (
                                             <TextField.ErrorMessage>{productErrors.fechaIngreso.join('\n')}</TextField.ErrorMessage>
                                         ) : undefined}
+                                        {showDatePickerIngreso && (
+                                            <DateTimePicker
+                                                testID="dateTimePickerIngreso"
+                                                value={editedProduct.fechaIngreso ? new Date(editedProduct.fechaIngreso) : new Date()}
+                                                mode="date"
+                                                is24Hour={true}
+                                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                                onChange={(event, selectedDate) => onDateChange('ingreso', event, selectedDate)}
+                                            />
+                                        )}
                                     </TextField>
 
                                     {/* FECHA CADUCIDAD */}
-                                    <TextField isRequired isInvalid={productErrors.fechaCaducidad.length > 0}>
+                                    <TextField isInvalid={productErrors.fechaCaducidad.length > 0}>
                                         <TextField.Label className="text-foreground font-medium mb-2">Fecha de caducidad</TextField.Label>
-                                        <TextField.Input
-                                            colors={{
-                                                blurBackground: colors.accentSoft,
-                                                focusBackground: colors.surface2,
-                                                blurBorder: productErrors.fechaCaducidad.length > 0 ? colors.danger : colors.accentSoft,
-                                                focusBorder: productErrors.fechaCaducidad.length > 0 ? colors.danger : colors.surface2,
-                                            }}
-                                            placeholder="YYYY-MM-DD"
-                                            value={editedProduct.fechaCaducidad}
-                                            onChangeText={(text) => handleInputChange('fechaCaducidad', text)}
-                                            cursorColor={colors.accent}
-                                            selectionHandleColor={colors.accent}
-                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                        >
-                                            <TextField.InputEndContent>
-                                                {productErrors.fechaCaducidad.length === 0 && editedProduct.fechaCaducidad ? (
-                                                    <Ionicons name="checkmark" size={24} color={colors.accent} />
-                                                ) : productErrors.fechaCaducidad.length > 0 ? (
-                                                    <Ionicons name="close" size={24} color={colors.danger} />
-                                                ) : null}
-                                            </TextField.InputEndContent>
-                                        </TextField.Input>
+                                        <Pressable onPress={() => setShowDatePickerCaducidad(true)}>
+                                            <View pointerEvents="none">
+                                                <TextField.Input
+                                                    colors={{
+                                                        blurBackground: colors.accentSoft,
+                                                        focusBackground: colors.surface2,
+                                                        blurBorder: productErrors.fechaCaducidad.length > 0 ? colors.danger : colors.accentSoft,
+                                                        focusBorder: productErrors.fechaCaducidad.length > 0 ? colors.danger : colors.surface2,
+                                                    }}
+                                                    placeholder="12/DIC/2025"
+                                                    value={editedProduct.fechaCaducidad ? formatDateStringToShort(editedProduct.fechaCaducidad) : ''}
+                                                    editable={false}
+                                                    cursorColor={colors.accent}
+                                                    selectionHandleColor={colors.accent}
+                                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                                >
+                                                    <TextField.InputEndContent>
+                                                        <Ionicons name="calendar-outline" size={24} color={colors.accent} />
+                                                    </TextField.InputEndContent>
+                                                </TextField.Input>
+                                            </View>
+                                        </Pressable>
                                         {productErrors.fechaCaducidad.length > 0 ? (
                                             <TextField.ErrorMessage>{productErrors.fechaCaducidad.join('\n')}</TextField.ErrorMessage>
                                         ) : undefined}
+                                        {showDatePickerCaducidad && (
+                                            <DateTimePicker
+                                                testID="dateTimePickerCaducidad"
+                                                value={editedProduct.fechaCaducidad ? new Date(editedProduct.fechaCaducidad) : new Date()}
+                                                mode="date"
+                                                is24Hour={true}
+                                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                                onChange={(event, selectedDate) => onDateChange('caducidad', event, selectedDate)}
+                                            />
+                                        )}
                                     </TextField>
 
-                                    {/* REANÁLISIS */}
-                                    <TextField isInvalid={productErrors.reanalisis.length > 0}>
-                                        <TextField.Label className="text-foreground font-medium mb-2">Reanálisis (Opcional)</TextField.Label>
+                                    {/* FECHA REANÁLISIS */}
+                                    <TextField isInvalid={productErrors.fechaReanalisis.length > 0}>
+                                        <TextField.Label className="text-foreground font-medium mb-2">Fecha de reanálisis</TextField.Label>
+                                        <Pressable onPress={() => setShowDatePickerReanalisis(true)}>
+                                            <View pointerEvents="none">
+                                                <TextField.Input
+                                                    colors={{
+                                                        blurBackground: colors.accentSoft,
+                                                        focusBackground: colors.surface2,
+                                                        blurBorder: productErrors.fechaReanalisis.length > 0 ? colors.danger : colors.accentSoft,
+                                                        focusBorder: productErrors.fechaReanalisis.length > 0 ? colors.danger : colors.surface2,
+                                                    }}
+                                                    placeholder="12/DIC/2025"
+                                                    value={editedProduct.fechaReanalisis ? formatDateStringToShort(editedProduct.fechaReanalisis) : ''}
+                                                    editable={false}
+                                                    cursorColor={colors.accent}
+                                                    selectionHandleColor={colors.accent}
+                                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                                >
+                                                    <TextField.InputEndContent>
+                                                        <Ionicons name="calendar-outline" size={24} color={colors.accent} />
+                                                    </TextField.InputEndContent>
+                                                </TextField.Input>
+                                            </View>
+                                        </Pressable>
+                                        {productErrors.fechaReanalisis.length > 0 ? (
+                                            <TextField.ErrorMessage>{productErrors.fechaReanalisis.join('\n')}</TextField.ErrorMessage>
+                                        ) : undefined}
+                                        {showDatePickerReanalisis && (
+                                            <DateTimePicker
+                                                testID="dateTimePickerReanalisis"
+                                                value={editedProduct.fechaReanalisis ? new Date(editedProduct.fechaReanalisis) : new Date()}
+                                                mode="date"
+                                                is24Hour={true}
+                                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                                onChange={(event, selectedDate) => onDateChange('reanalisis', event, selectedDate)}
+                                            />
+                                        )}
+                                    </TextField>
+
+                                    {/* UNIDAD DE MEDIDA */}
+                                    <View>
+                                        <Text className="text-foreground font-medium mb-2">
+                                            Unidad de medida <Text className="text-danger">*</Text>
+                                        </Text>
+                                        <TouchableOpacity onPress={() => unidadMedidaModalRef.current?.open()}>
+                                            <View className="w-full h-12 flex-row items-center justify-between px-4 rounded-lg bg-accent-soft">
+                                                <Text className="text-foreground font-medium">
+                                                    {getUnitOfMeasurementName(editedProduct.unitOfMeasurementId)}
+                                                </Text>
+                                                <Ionicons name="chevron-down-outline" size={24} color={colors.accent} />
+                                            </View>
+                                        </TouchableOpacity>
+                                        {productErrors.unitOfMeasurementId.length > 0 ? (
+                                            <Text className="text-danger text-sm mt-1">{productErrors.unitOfMeasurementId.join('\n')}</Text>
+                                        ) : null}
+                                    </View>
+
+                                    {/* TIPO DE ALMACÉN */}
+                                    <View>
+                                        <Text className="text-foreground font-medium mb-2">
+                                            Tipo de almacén <Text className="text-danger">*</Text>
+                                        </Text>
+                                        <TouchableOpacity onPress={() => warehouseTypeModalRef.current?.open()}>
+                                            <View className="w-full h-12 flex-row items-center justify-between px-4 rounded-lg bg-accent-soft">
+                                                <Text className="text-foreground font-medium">{getWarehouseTypeName(editedProduct.warehouseTypeId)}</Text>
+                                                <Ionicons name="chevron-down-outline" size={24} color={colors.accent} />
+                                            </View>
+                                        </TouchableOpacity>
+                                        {productErrors.warehouseTypeId.length > 0 ? (
+                                            <Text className="text-danger text-sm mt-1">{productErrors.warehouseTypeId.join('\n')}</Text>
+                                        ) : null}
+                                    </View>
+
+                                    {/* CANTIDAD TOTAL */}
+                                    <TextField isRequired isInvalid={productErrors.cantidad.length > 0}>
+                                        <TextField.Label className="text-foreground font-medium mb-2">Cantidad total</TextField.Label>
                                         <TextField.Input
                                             colors={{
                                                 blurBackground: colors.accentSoft,
                                                 focusBackground: colors.surface2,
-                                                blurBorder: productErrors.reanalisis.length > 0 ? colors.danger : colors.accentSoft,
-                                                focusBorder: productErrors.reanalisis.length > 0 ? colors.danger : colors.surface2,
+                                                blurBorder: productErrors.cantidad.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: productErrors.cantidad.length > 0 ? colors.danger : colors.surface2,
                                             }}
-                                            placeholder="YYYY-MM-DD"
-                                            value={editedProduct.reanalisis}
-                                            onChangeText={(text) => handleInputChange('reanalisis', text)}
+                                            placeholder="Ej: 500"
+                                            value={editedProduct.cantidad}
+                                            onChangeText={(text) => handleInputChange('cantidad', text)}
+                                            keyboardType="numeric"
                                             cursorColor={colors.accent}
                                             selectionHandleColor={colors.accent}
                                             selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
                                         >
                                             <TextField.InputEndContent>
-                                                {productErrors.reanalisis.length === 0 && editedProduct.reanalisis ? (
+                                                {productErrors.cantidad.length === 0 && editedProduct.cantidad ? (
                                                     <Ionicons name="checkmark" size={24} color={colors.accent} />
-                                                ) : productErrors.reanalisis.length > 0 ? (
+                                                ) : productErrors.cantidad.length > 0 ? (
                                                     <Ionicons name="close" size={24} color={colors.danger} />
                                                 ) : null}
                                             </TextField.InputEndContent>
                                         </TextField.Input>
-                                        {productErrors.reanalisis.length > 0 ? (
-                                            <TextField.ErrorMessage>{productErrors.reanalisis.join('\n')}</TextField.ErrorMessage>
+                                        {productErrors.cantidad.length > 0 ? (
+                                            <TextField.ErrorMessage>{productErrors.cantidad.join('\n')}</TextField.ErrorMessage>
+                                        ) : undefined}
+                                    </TextField>
+
+                                    {/* NÚMERO DE CONTENEDORES */}
+                                    <TextField isRequired isInvalid={productErrors.numeroContenedores.length > 0}>
+                                        <TextField.Label className="text-foreground font-medium mb-2">Número de contenedores</TextField.Label>
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: productErrors.numeroContenedores.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: productErrors.numeroContenedores.length > 0 ? colors.danger : colors.surface2,
+                                            }}
+                                            placeholder="Ej: 10"
+                                            value={editedProduct.numeroContenedores}
+                                            onChangeText={(text) => handleInputChange('numeroContenedores', text)}
+                                            keyboardType="numeric"
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                        >
+                                            <TextField.InputEndContent>
+                                                {productErrors.numeroContenedores.length === 0 && editedProduct.numeroContenedores ? (
+                                                    <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                                ) : productErrors.numeroContenedores.length > 0 ? (
+                                                    <Ionicons name="close" size={24} color={colors.danger} />
+                                                ) : null}
+                                            </TextField.InputEndContent>
+                                        </TextField.Input>
+                                        {productErrors.numeroContenedores.length > 0 ? (
+                                            <TextField.ErrorMessage>{productErrors.numeroContenedores.join('\n')}</TextField.ErrorMessage>
+                                        ) : undefined}
+                                    </TextField>
+
+                                    {/* NÚMERO DE ANÁLISIS */}
+                                    <TextField isInvalid={productErrors.numeroAnalisis.length > 0}>
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <TextField.Label className="text-foreground font-medium">Número de análisis (Opcional)</TextField.Label>
+                                            <Text className="text-muted-foreground text-xs">{editedProduct.numeroAnalisis.length} / 50</Text>
+                                        </View>
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: productErrors.numeroAnalisis.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: productErrors.numeroAnalisis.length > 0 ? colors.danger : colors.surface2,
+                                            }}
+                                            placeholder="Número de análisis"
+                                            value={editedProduct.numeroAnalisis}
+                                            onChangeText={(text) => handleInputChange('numeroAnalisis', text)}
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                            maxLength={50}
+                                        />
+                                        {productErrors.numeroAnalisis.length > 0 ? (
+                                            <TextField.ErrorMessage>{productErrors.numeroAnalisis.join('\n')}</TextField.ErrorMessage>
                                         ) : undefined}
                                     </TextField>
                                 </View>
@@ -1545,6 +2376,108 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                                         <RadioGroup.Indicator />
                                     </RadioGroup.Item>
                                 ))}
+                            </RadioGroup>
+                        </View>
+                    </ScrollView>
+                </View>
+            </Modalize>
+
+            {/* Modal de selección de unidad de medida */}
+            <Modalize ref={unidadMedidaModalRef} {...MODAL_ANIMATION_PROPS} modalStyle={{ backgroundColor: colors.background }}>
+                <View className="px-[6%] pt-[9%] pb-[6%]" style={{ maxHeight: MODAL_MAX_HEIGHT }}>
+                    <View className="flex gap-0 mb-8">
+                        <View className="flex flex-row justify-between items-center">
+                            <Text className="text-foreground text-2xl font-medium">Seleccionar unidad</Text>
+                            <Button isIconOnly className="bg-transparent shrink-0" onPress={() => unidadMedidaModalRef.current?.close()}>
+                                <Ionicons name="close-outline" size={24} color={colors.foreground} />
+                            </Button>
+                        </View>
+                        <Text className="text-muted-foreground">Seleccione la unidad de medida</Text>
+                    </View>
+                    <ScrollView style={{ maxHeight: height * 0.5 }} showsVerticalScrollIndicator={false}>
+                        <View>
+                            <View className="mb-0">
+                                <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Unidades disponibles</Text>
+                            </View>
+                            <RadioGroup
+                                value={String(editedProduct.unitOfMeasurementId || '')}
+                                onValueChange={(val) => {
+                                    handleInputChange('unitOfMeasurementId', val)
+                                    unidadMedidaModalRef.current?.close()
+                                }}
+                            >
+                                {Array.isArray(unitsOfMeasurement) && unitsOfMeasurement.length > 0 ? (
+                                    unitsOfMeasurement.map((unit) => (
+                                        <RadioGroup.Item
+                                            key={unit.id}
+                                            value={String(unit.id)}
+                                            className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
+                                        >
+                                            <View className="flex-1">
+                                                <RadioGroup.Title className="text-foreground font-medium text-lg">
+                                                    {unit.name} ({unit.code})
+                                                </RadioGroup.Title>
+                                                {unit.description && <Text className="text-muted-foreground text-sm">{unit.description}</Text>}
+                                            </View>
+                                            <RadioGroup.Indicator />
+                                        </RadioGroup.Item>
+                                    ))
+                                ) : (
+                                    <View className="p-4 items-center">
+                                        <Text className="text-muted-foreground">No hay unidades disponibles</Text>
+                                    </View>
+                                )}
+                            </RadioGroup>
+                        </View>
+                    </ScrollView>
+                </View>
+            </Modalize>
+
+            {/* Modal de selección de tipo de almacén */}
+            <Modalize ref={warehouseTypeModalRef} {...MODAL_ANIMATION_PROPS} modalStyle={{ backgroundColor: colors.background }}>
+                <View className="px-[6%] pt-[9%] pb-[6%]" style={{ maxHeight: MODAL_MAX_HEIGHT }}>
+                    <View className="flex gap-0 mb-8">
+                        <View className="flex flex-row justify-between items-center">
+                            <Text className="text-foreground text-2xl font-medium">Seleccionar tipo</Text>
+                            <Button isIconOnly className="bg-transparent shrink-0" onPress={() => warehouseTypeModalRef.current?.close()}>
+                                <Ionicons name="close-outline" size={24} color={colors.foreground} />
+                            </Button>
+                        </View>
+                        <Text className="text-muted-foreground">Seleccione el tipo de almacén</Text>
+                    </View>
+                    <ScrollView style={{ maxHeight: height * 0.5 }} showsVerticalScrollIndicator={false}>
+                        <View>
+                            <View className="mb-0">
+                                <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Tipos disponibles</Text>
+                            </View>
+                            <RadioGroup
+                                value={String(editedProduct.warehouseTypeId || '')}
+                                onValueChange={(val) => {
+                                    handleInputChange('warehouseTypeId', val)
+                                    warehouseTypeModalRef.current?.close()
+                                }}
+                            >
+                                {Array.isArray(warehouseTypes) && warehouseTypes.length > 0 ? (
+                                    warehouseTypes.map((wt) => (
+                                        <RadioGroup.Item
+                                            key={wt.id}
+                                            value={String(wt.id)}
+                                            className="-my-0.5 flex-row items-center p-4 bg-accent-soft rounded-lg border-0"
+                                        >
+                                            <View className="flex-1">
+                                                <RadioGroup.Title className="text-foreground font-medium text-lg">
+                                                    {wt.code} - {wt.name}
+                                                </RadioGroup.Title>
+                                                {wt.description && <Text className="text-muted-foreground text-sm">{wt.description}</Text>}
+                                            </View>
+                                            <RadioGroup.Indicator />
+                                        </RadioGroup.Item>
+                                    ))
+                                ) : (
+                                    <View className="p-4 items-center">
+                                        <Text className="text-muted-foreground">No hay tipos disponibles</Text>
+                                    </View>
+                                )}
                             </RadioGroup>
                         </View>
                     </ScrollView>
@@ -1793,6 +2726,8 @@ const ProductsScreen = () => {
     const [products, setProducts] = useState([])
     const [catalogues, setCatalogues] = useState([])
     const [statuses, setStatuses] = useState([])
+    const [unitsOfMeasurement, setUnitsOfMeasurement] = useState([])
+    const [warehouseTypes, setWarehouseTypes] = useState([])
     const { colors } = useTheme()
     const { userRole } = useAuth()
     const isAdmin = userRole === 'ADMIN' || userRole === '1'
@@ -1859,7 +2794,6 @@ const ProductsScreen = () => {
             // Obtener productos
             const productsResponse = await getProducts()
             const productsList = productsResponse?.data?.content || []
-
             setProducts(productsList)
 
             // Obtener catálogos
@@ -1875,6 +2809,20 @@ const ProductsScreen = () => {
             const statusesResponse = await getProductStatuses()
             if (statusesResponse?.data) {
                 setStatuses(statusesResponse.data)
+            }
+
+            // Obtener unidades de medida
+            const unitsResponse = await getUnitsOfMeasurement()
+            if (unitsResponse?.data) {
+                const unitsList = Array.isArray(unitsResponse.data) ? unitsResponse.data : []
+                setUnitsOfMeasurement(unitsList)
+            }
+
+            // Obtener tipos de almacén
+            const warehouseTypesResponse = await getWarehouseTypes()
+            if (warehouseTypesResponse?.data) {
+                const warehouseTypesList = Array.isArray(warehouseTypesResponse.data) ? warehouseTypesResponse.data : []
+                setWarehouseTypes(warehouseTypesList)
             }
         } catch (err) {
             console.error('Error fetch:', err)
@@ -2062,10 +3010,10 @@ const ProductsScreen = () => {
                                                             {/* TEXTOS: Tipografía solicitada */}
                                                             <View className="flex-1 pr-4 justify-center py-1">
                                                                 <Text className="text-foreground font-medium text-lg mb-1" numberOfLines={1}>
-                                                                    {item.lote}
+                                                                    {item.nombre}
                                                                 </Text>
                                                                 <Text className="text-muted-foreground text-[14px]" numberOfLines={1}>
-                                                                    {item.nombre}
+                                                                    {item.lote}
                                                                 </Text>
                                                             </View>
 
@@ -2111,24 +3059,44 @@ const ProductsScreen = () => {
 
                                                         {/* Lista de datos con gap reducido (compacto) */}
                                                         <View className="gap-2">
+                                                            <InfoRow label="Nombre" value={item.nombre || 'N/A'} />
                                                             <InfoRow label="Código" value={item.codigo || 'N/A'} />
+                                                            {item.numeroSerie && <InfoRow label="Número de serie" value={item.numeroSerie} />}
                                                             <InfoRow label="Catálogo" value={getCatalogueName(item.stockCatalogueId)} />
                                                             <InfoRow label="Estado" value={getStatusName(item.productStatusId)} />
-                                                            <InfoRow label="Fecha ingreso" value={formatDate(item.fecha)} />
-                                                            <InfoRow label="Caducidad" value={formatDate(item.caducidad)} />
-
-                                                            <View className="flex-row items-start justify-between">
-                                                                <Text className="text-[14px] text-muted-foreground w-24 pt-0.5">Reánalisis</Text>
-                                                                <Text
-                                                                    className={`text-[14px] text-right flex-1 font-medium ${
-                                                                        item.reanalisis ? 'text-foreground' : 'text-muted-foreground italic'
-                                                                    }`}
-                                                                    numberOfLines={2}
-                                                                >
-                                                                    {item.reanalisis ? formatDate(item.reanalisis) : 'No especificado'}
-                                                                </Text>
-                                                            </View>
-
+                                                            <InfoRow
+                                                                label="Fecha ingreso"
+                                                                value={
+                                                                    item.fecha
+                                                                        ? `${new Date(item.fecha + 'T12:00:00').getDate()} de ${new Date(item.fecha + 'T12:00:00').toLocaleString('es-MX', { month: 'short' }).toUpperCase().replace('.', '')} de ${new Date(item.fecha + 'T12:00:00').getFullYear()}`
+                                                                        : 'N/A'
+                                                                }
+                                                            />
+                                                            <InfoRow
+                                                                label="Caducidad"
+                                                                value={
+                                                                    item.caducidad
+                                                                        ? `${new Date(item.caducidad + 'T12:00:00').getDate()} de ${new Date(item.caducidad + 'T12:00:00').toLocaleString('es-MX', { month: 'short' }).toUpperCase().replace('.', '')} de ${new Date(item.caducidad + 'T12:00:00').getFullYear()}`
+                                                                        : 'N/A'
+                                                                }
+                                                            />
+                                                            <InfoRow
+                                                                label="Reanálisis"
+                                                                value={
+                                                                    item.reanalisis
+                                                                        ? `${new Date(item.reanalisis + 'T12:00:00').getDate()} de ${new Date(item.reanalisis + 'T12:00:00').toLocaleString('es-MX', { month: 'short' }).toUpperCase().replace('.', '')} de ${new Date(item.reanalisis + 'T12:00:00').getFullYear()}`
+                                                                        : 'No especificado'
+                                                                }
+                                                            />
+                                                            {item.loteProveedor && <InfoRow label="Lote Proveedor" value={item.loteProveedor} />}
+                                                            {item.fabricante && <InfoRow label="Fabricante" value={item.fabricante} />}
+                                                            {item.distribuidor && <InfoRow label="Distribuidor" value={item.distribuidor} />}
+                                                            {item.codigoProducto && <InfoRow label="Código producto" value={item.codigoProducto} />}
+                                                            {item.numeroAnalisis && <InfoRow label="No. analisis" value={item.numeroAnalisis} />}
+                                                            {item.cantidadTotal && <InfoRow label="No. Cantidad" value={item.cantidadTotal} />}
+                                                            {item.numeroContenedores && <InfoRow label="No. Contenedores" value={item.numeroContenedores} />}
+                                                            {item.warehouseTypeName && <InfoRow label="Almacén" value={item.warehouseTypeName} />}
+                                                            {item.unitOfMeasurementName && <InfoRow label="Unidad" value={item.unitOfMeasurementName} />}
                                                             <InfoRow label="Por" value={item.createdByUserName} />
                                                             <InfoRow label="Creado" value={formatDateLiteral(item.createdAt, true)} />
                                                             <InfoRow label="Actualizado" value={formatDateLiteral(item.updatedAt, true)} />
@@ -2194,6 +3162,8 @@ const ProductsScreen = () => {
                 alertRef={alertRef}
                 catalogues={catalogues}
                 statuses={statuses}
+                unitsOfMeasurement={unitsOfMeasurement}
+                warehouseTypes={warehouseTypes}
             />
             <EditProductModalContent
                 modalRef={editModalRef}
@@ -2202,6 +3172,8 @@ const ProductsScreen = () => {
                 alertRef={alertRef}
                 catalogues={catalogues}
                 statuses={statuses}
+                unitsOfMeasurement={unitsOfMeasurement}
+                warehouseTypes={warehouseTypes}
             />
             <QrScannerModalContent modalRef={qrScannerModalRef} onScanSuccess={handleScanSuccess} alertRef={alertRef} />
             <ProductDetailsModalContent

@@ -12,11 +12,15 @@ import { getProfile } from '../../services/user'
 import { getProducts, getStockCatalogues, getProductStatuses } from '../../services/product'
 import { getUsersRequest } from '../../services/user'
 import { getProductByQrHash } from '../../services/product'
+import { getWarehouseTypes } from '../../services/warehouseType'
+import { getUnitsOfMeasurement } from '../../services/unitOfMeasurement'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import LogsScreen from '../admin/LogsScreen'
 import UsersScreen from '../admin/UsersScreen'
 import StockCataloguesScreen from '../admin/StockCataloguesScreen'
 import ProductStatusesScreen from '../admin/ProductStatusesScreen'
+import WarehouseTypesScreen from '../admin/WarehouseTypesScreen'
+import UnitsOfMeasurementScreen from '../admin/UnitsOfMeasurementScreen'
 
 const Stack = createStackNavigator()
 
@@ -283,6 +287,8 @@ const HomeScreenIndex = () => {
         totalProducts: 0,
         totalCatalogues: 0,
         totalStatuses: 0,
+        totalWarehouseTypes: 0,
+        totalUnitsOfMeasurement: 0,
     })
     const qrScannerModalRef = useRef(null)
     const alertRef = useRef(null)
@@ -292,11 +298,11 @@ const HomeScreenIndex = () => {
     const fetchDashboardData = async () => {
         try {
             setIsLoading(true)
-            const promises = [getProfile(), getProducts(0, 1), getStockCatalogues(0, 1), getProductStatuses()]
+            const promises = [getProfile(), getProducts(0, 1), getStockCatalogues(0, 1), getProductStatuses(), getWarehouseTypes(), getUnitsOfMeasurement()]
             if (isAdmin) promises.push(getUsersRequest())
             else promises.push(Promise.resolve(null))
 
-            const [profileRes, productsRes, cataloguesRes, statusesRes, usersRes] = await Promise.allSettled(promises)
+            const [profileRes, productsRes, cataloguesRes, statusesRes, warehouseTypesRes, unitsRes, usersRes] = await Promise.allSettled(promises)
 
             if (profileRes.status === 'fulfilled') setUserProfile(profileRes.value?.data || profileRes.value)
 
@@ -309,6 +315,8 @@ const HomeScreenIndex = () => {
                 totalProducts: productsRes.status === 'fulfilled' ? getCount(productsRes) : 0,
                 totalCatalogues: cataloguesRes.status === 'fulfilled' ? getCount(cataloguesRes) : 0,
                 totalStatuses: statusesRes.status === 'fulfilled' ? getCount(statusesRes) : 0,
+                totalWarehouseTypes: warehouseTypesRes.status === 'fulfilled' ? getCount(warehouseTypesRes) : 0,
+                totalUnitsOfMeasurement: unitsRes.status === 'fulfilled' ? getCount(unitsRes) : 0,
                 totalUsers: isAdmin && usersRes.status === 'fulfilled' ? getCount(usersRes) : 0,
             })
         } catch (error) {
@@ -381,6 +389,24 @@ const HomeScreenIndex = () => {
                                         onPress={() => navigation.navigate('Estados')}
                                         loading={isLoading}
                                     />
+                                    <StatCard
+                                        icon="business-outline"
+                                        label="Almacenes"
+                                        subtitle="Gestionar tipos de almacén"
+                                        value={stats.totalWarehouseTypes}
+                                        color={colors.accent}
+                                        onPress={() => navigation.navigate('Almacenes')}
+                                        loading={isLoading}
+                                    />
+                                    <StatCard
+                                        icon="scale-outline"
+                                        label="Unidades"
+                                        subtitle="Gestionar unidades de medida"
+                                        value={stats.totalUnitsOfMeasurement}
+                                        color={colors.accent}
+                                        onPress={() => navigation.navigate('Unidades')}
+                                        loading={isLoading}
+                                    />
                                 </>
                             )}
                             <QuickAccessCard
@@ -419,6 +445,8 @@ const HomeScreen = () => {
                 <Stack.Screen name="Usuarios" component={UsersScreen} />
                 <Stack.Screen name="Logs" component={LogsScreen} />
                 <Stack.Screen name="Estados" component={ProductStatusesScreen} />
+                <Stack.Screen name="Almacenes" component={WarehouseTypesScreen} />
+                <Stack.Screen name="Unidades" component={UnitsOfMeasurementScreen} />
             </Stack.Navigator>
         </View>
     )

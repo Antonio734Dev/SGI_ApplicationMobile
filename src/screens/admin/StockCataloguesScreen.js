@@ -116,7 +116,6 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, rowsPerPage,
     const sortOptions = [
         { label: 'Nombre', value: 'name' },
         { label: 'SKU', value: 'sku' },
-        { label: 'Stock Actual', value: 'stockActual' },
         { label: 'Fecha Creación', value: 'createdAt' },
     ]
 
@@ -984,18 +983,14 @@ const StockCataloguesScreen = () => {
                                                     <Accordion.Content className="bg-accent-soft px-4 pb-4">
                                                         <View className="h-px bg-border/30 mt-0 mb-3" />
                                                         <View className="gap-2">
+                                                            {item.totalProductos && <InfoRow label="No. Productos" value={item.totalProductos} />}
                                                             {item.description && <InfoRow label="Descripción" value={item.description} />}
-                                                            <InfoRow label="Unidad" value={item.unidad} />
-                                                            {item.stockActual !== undefined && item.stockActual !== null && (
-                                                                <InfoRow label="Stock Actual" value={item.stockActual.toString()} />
-                                                            )}
-                                                            {item.stockCantidad !== undefined && item.stockCantidad !== null && (
-                                                                <InfoRow label="Stock Cantidad" value={item.stockCantidad.toString()} />
-                                                            )}
-                                                            {item.cantidad !== undefined && item.cantidad !== null && (
-                                                                <InfoRow label="Cantidad" value={item.cantidad.toString()} />
-                                                            )}
+                                                            {item.createdByUserName && <InfoRow label="Por" value={item.createdByUserName} />}
                                                             <InfoRow label="Creado" value={item.createdAt ? formatDateLiteral(item.createdAt, true) : 'N/A'} />
+                                                            <InfoRow
+                                                                label="Actualizado"
+                                                                value={item.updatedAt ? formatDateLiteral(item.updatedAt, true) : 'N/A'}
+                                                            />
                                                         </View>
                                                     </Accordion.Content>
                                                 </Accordion.Item>

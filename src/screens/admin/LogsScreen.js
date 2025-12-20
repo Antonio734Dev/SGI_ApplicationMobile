@@ -29,7 +29,7 @@ const MODAL_ANIMATION_PROPS = {
 const InfoRow = ({ label, value, valueClassName = '' }) => (
     <View className="flex-row items-start justify-between">
         <Text className="text-[14px] text-muted-foreground w-24 pt-0.5">{label}</Text>
-        <Text className={`text-[14px] text-right flex-1 font-medium ${valueClassName ? valueClassName : 'text-foreground'}`} numberOfLines={2}>
+        <Text className={`text-[14px] text-right flex-1 font-medium ${valueClassName ? valueClassName : 'text-foreground'}`} numberOfLines={10}>
             {value}
         </Text>
     </View>
@@ -216,6 +216,8 @@ const LogsScreen = () => {
             setIsLoading(true)
             // El backend devuelve directamente una lista, no un objeto con data
             const list = await getAuditLogs()
+            console.log('=== WAREHOUSE TYPES (ORDENADO) ===')
+            console.log(JSON.stringify(list, null, 2))
             setLogs(Array.isArray(list) ? list : [])
         } catch (err) {
             console.error('Error fetch:', err)

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { View, Text, Platform, RefreshControl } from 'react-native'
+import { View, Text, Platform, RefreshControl, Linking, Alert } from 'react-native'
 import { useAuth } from '../contexts/AuthContext'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Button, Spinner, TextField, useTheme } from 'heroui-native'
@@ -7,6 +7,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { Ionicons } from '@expo/vector-icons'
 import ThemeSwitcher from '../components/ThemeSwitcher'
 import { required, validEmail, validPassword } from '../utils/validators'
+import { forgotPasswordRequest } from '../services/auth'
 
 const LoginScreen = () => {
     const [isLoading, setIsLoading] = useState(false)
@@ -93,7 +94,7 @@ const LoginScreen = () => {
             console.error('[LoginScreen] Error message:', e.message)
             console.error('[LoginScreen] Error response:', e.response)
             console.error('[LoginScreen] Error isConnectionError:', e.isConnectionError)
-            
+
             // Manejar errores de conexión
             if (e.isConnectionError || !e.response) {
                 setSubmitError('No se pudo conectar con el servidor. Verifica tu conexión a internet y que el servidor esté disponible.')
@@ -232,6 +233,46 @@ const LoginScreen = () => {
                                         <Button.Label>Ingresar</Button.Label>
                                     </>
                                 )}
+                            </Button>
+                        </View>
+
+                        {/* Link de recuperación de contraseña */}
+                        <View className="mt-4 items-center">
+                            <Button
+                                variant="ghost"
+                                className="bg-transparent"
+                                onPress={async () => {
+                                    try {
+                                        const email = formData.email.trim()
+                                        if (!email) {
+                                            setSubmitError('Por favor ingrese su correo electrónico para recuperar su contraseña')
+                                            return
+                                        }
+                                        const emailErrs = runValidators(email, validators.email)
+                                        if (emailErrs.length > 0) {
+                                            setSubmitError('Por favor ingrese un correo electrónico válido')
+                                            return
+                                        }
+                                        setIsLoading(true)
+                                        await forgotPasswordRequest(email)
+                                        setSubmitError('')
+                                        Alert.alert('Éxito', 'Se ha enviado un enlace de recuperación a su correo electrónico')
+                                    } catch (error) {
+                                        console.error('Error forgot password:', error)
+                                        if (error.response?.data) {
+                                            const { title, description } = error.response.data
+                                            setSubmitError(title || description || 'Error al solicitar recuperación de contraseña')
+                                        } else {
+                                            setSubmitError('Error al solicitar recuperación de contraseña. Verifique su conexión.')
+                                        }
+                                    } finally {
+                                        setIsLoading(false)
+                                    }
+                                }}
+                            >
+                                <Text style={{ color: colors.accent }} className="text-sm underline">
+                                    ¿Olvidaste tu contraseña?
+                                </Text>
                             </Button>
                         </View>
                     </View>

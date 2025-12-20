@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef, forwardRef, useImperativeHandle } from 'react'
 import { Text, View, TouchableOpacity, Platform, Dimensions } from 'react-native'
 import ScrollableLayout from '../../layouts/ScrollableLayout'
-import { Accordion, Button, RadioGroup, ScrollShadow, Spinner, Switch, TextField, useTheme } from 'heroui-native'
+import { Accordion, Button, RadioGroup, ScrollShadow, Spinner, TextField, useTheme } from 'heroui-native'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { formatDateLiteral } from '../../utils/utils'
@@ -10,7 +10,8 @@ import { ScrollView } from 'react-native-gesture-handler'
 import { required } from '../../utils/validators'
 import BackButton from '../../components/BackButton'
 // Servicios
-import { getProductStatuses, createProductStatus, updateProductStatus, deleteProductStatus } from '../../services/product'
+import { getWarehouseTypes, createWarehouseType, updateWarehouseType, deleteWarehouseType } from '../../services/warehouseType'
+
 const { height } = Dimensions.get('window')
 const MODAL_MAX_HEIGHT = height * 0.75
 const OVERLAY_STYLE = { backgroundColor: 'rgba(0, 0, 0, 0.4)' }
@@ -34,6 +35,7 @@ const InfoRow = ({ label, value, valueClassName = '' }) => (
         </Text>
     </View>
 )
+
 // =====================================================================
 // CUSTOM ALERT (Reutilizado)
 // =====================================================================
@@ -98,6 +100,7 @@ const CustomAlert = forwardRef((_, ref) => {
         </Modalize>
     )
 })
+
 // =====================================================================
 // MODAL DE FILTROS
 // =====================================================================
@@ -105,6 +108,7 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, rowsPerPage,
     const { colors } = useTheme()
     const onClose = () => modalRef.current?.close()
     const sortOptions = [
+        { label: 'Código', value: 'code' },
         { label: 'Nombre', value: 'name' },
         { label: 'Fecha Creación', value: 'createdAt' },
     ]
@@ -132,7 +136,6 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, rowsPerPage,
                         <Text className="text-muted-foreground">Ordena y filtra tus resultados</Text>
                     </View>
                     <View className="gap-6">
-                        {/* ORDENAR POR */}
                         <View>
                             <View className="mb-0">
                                 <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Ordenar por</Text>
@@ -152,8 +155,6 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, rowsPerPage,
                                 ))}
                             </RadioGroup>
                         </View>
-
-                        {/* FILAS POR PÁGINA */}
                         <View>
                             <View className="mb-0">
                                 <Text className="text-[12px] font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Filas por página</Text>
@@ -185,47 +186,54 @@ const FiltersModalContent = ({ modalRef, sortOption, setSortOption, rowsPerPage,
         </Modalize>
     )
 }
+
 // =====================================================================
 // MODAL DE CREACIÓN
 // =====================================================================
-const CreateStatusModalContent = ({ modalRef, onStatusCreated, isLoading, alertRef }) => {
+const CreateWarehouseTypeModalContent = ({ modalRef, onTypeCreated, isLoading, alertRef }) => {
     const { colors } = useTheme()
     const [isSaving, setIsSaving] = useState(false)
-    const [newStatus, setNewStatus] = useState({
+    const [newType, setNewType] = useState({
+        code: '',
         name: '',
         description: '',
     })
-    const [statusErrors, setStatusErrors] = useState({
+    const [typeErrors, setTypeErrors] = useState({
+        code: [],
         name: [],
         description: [],
     })
     const validators = {
+        code: [required],
         name: [required],
         description: [],
     }
     const runValidators = (value, fns) => fns.map((fn) => fn(value)).filter(Boolean)
     const handleInputChange = (field, value) => {
-        setNewStatus((prev) => ({ ...prev, [field]: value }))
+        setNewType((prev) => ({ ...prev, [field]: value }))
         const fns = validators[field] || []
         const errs = runValidators(value, fns)
-        setStatusErrors((prev) => ({ ...prev, [field]: errs }))
+        setTypeErrors((prev) => ({ ...prev, [field]: errs }))
     }
     const onClose = () => {
         modalRef.current?.close()
-        setNewStatus({
+        setNewType({
+            code: '',
             name: '',
             description: '',
         })
-        setStatusErrors({
+        setTypeErrors({
+            code: [],
             name: [],
             description: [],
         })
     }
     const handleCreate = async () => {
-        // Validación final
-        const nameErrs = runValidators(newStatus.name, validators.name)
-        if (nameErrs.length > 0) {
-            setStatusErrors({
+        const codeErrs = runValidators(newType.code, validators.code)
+        const nameErrs = runValidators(newType.name, validators.name)
+        if (codeErrs.length > 0 || nameErrs.length > 0) {
+            setTypeErrors({
+                code: codeErrs,
                 name: nameErrs,
                 description: [],
             })
@@ -234,23 +242,25 @@ const CreateStatusModalContent = ({ modalRef, onStatusCreated, isLoading, alertR
         }
         try {
             setIsSaving(true)
-            const statusData = {
-                name: newStatus.name.trim(),
-                description: newStatus.description.trim() || null,
+            const typeData = {
+                code: newType.code.trim(),
+                name: newType.name.trim(),
+                description: newType.description.trim() || null,
             }
-            await createProductStatus(statusData)
+            await createWarehouseType(typeData)
             onClose()
             setTimeout(() => {
-                alertRef.current?.show('Éxito', 'Estado creado correctamente', 'success')
+                alertRef.current?.show('Éxito', 'Tipo de almacén creado correctamente', 'success')
             }, 300)
-            if (onStatusCreated) onStatusCreated()
+            if (onTypeCreated) onTypeCreated()
         } catch (error) {
-            console.error('Error create status:', error)
+            console.error('Error create warehouse type:', error)
             if (error.response?.data) {
                 const { result, title } = error.response.data
-                alertRef.current?.show('Error', title || 'Error al crear estado', 'error')
+                alertRef.current?.show('Error', title || 'Error al crear tipo de almacén', 'error')
                 if (result && Array.isArray(result) && result.length > 0) {
                     const newFieldErrors = {
+                        code: [],
                         name: [],
                         description: [],
                     }
@@ -261,17 +271,17 @@ const CreateStatusModalContent = ({ modalRef, onStatusCreated, isLoading, alertR
                             newFieldErrors[field] = descriptions
                         }
                     })
-                    setStatusErrors(newFieldErrors)
+                    setTypeErrors(newFieldErrors)
                 }
             } else {
-                alertRef.current?.show('Error', 'No se pudo crear el estado', 'error')
+                alertRef.current?.show('Error', 'No se pudo crear el tipo de almacén', 'error')
             }
         } finally {
             setIsSaving(false)
         }
     }
     const hasErrors = () => {
-        return statusErrors.name.length > 0 || !newStatus.name.trim()
+        return typeErrors.code.length > 0 || typeErrors.name.length > 0 || !newType.code.trim() || !newType.name.trim()
     }
     return (
         <Modalize ref={modalRef} {...MODAL_ANIMATION_PROPS} modalStyle={{ backgroundColor: colors.background }}>
@@ -283,60 +293,91 @@ const CreateStatusModalContent = ({ modalRef, onStatusCreated, isLoading, alertR
                 >
                     <View className="flex gap-0 mb-8">
                         <View className="flex flex-row justify-between items-center">
-                            <Text className="text-foreground text-2xl font-medium">Registrar estado</Text>
+                            <Text className="text-foreground text-2xl font-medium">Registrar tipo</Text>
                             <Button isIconOnly className="bg-transparent shrink-0" onPress={onClose}>
                                 <Ionicons name="close-outline" size={24} color={colors.foreground} />
                             </Button>
                         </View>
-                        <Text className="text-muted-foreground">Ingrese los datos del nuevo estado</Text>
+                        <Text className="text-muted-foreground">Ingrese los datos del nuevo tipo de almacén</Text>
                     </View>
                     <View className="gap-6">
-                        {/* NOMBRE */}
-                        <TextField isRequired isInvalid={statusErrors.name.length > 0}>
+                        <TextField isRequired isInvalid={typeErrors.code.length > 0}>
                             <View className="flex-row justify-between items-center mb-2">
-                                <TextField.Label className="text-foreground font-medium">Nombre</TextField.Label>
-                                <Text className="text-muted-foreground text-xs">{newStatus.name.length} / 255</Text>
+                                <TextField.Label className="text-foreground font-medium">Código</TextField.Label>
+                                <Text className="text-muted-foreground text-xs">{newType.code.length} / 10</Text>
                             </View>
                             <TextField.Input
                                 colors={{
                                     blurBackground: colors.accentSoft,
                                     focusBackground: colors.surface2,
-                                    blurBorder: statusErrors.name.length > 0 ? colors.danger : colors.accentSoft,
-                                    focusBorder: statusErrors.name.length > 0 ? colors.danger : colors.surface2,
+                                    blurBorder: typeErrors.code.length > 0 ? colors.danger : colors.accentSoft,
+                                    focusBorder: typeErrors.code.length > 0 ? colors.danger : colors.surface2,
                                 }}
-                                placeholder="Nombre del estado"
-                                value={newStatus.name}
-                                onChangeText={(text) => handleInputChange('name', text)}
+                                placeholder="Ej: MPS, MES, MEM, MPM"
+                                value={newType.code}
+                                onChangeText={(text) => handleInputChange('code', text.toUpperCase())}
                                 cursorColor={colors.accent}
                                 selectionHandleColor={colors.accent}
                                 selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                maxLength={255}
+                                maxLength={10}
+                                autoCapitalize="characters"
                             >
                                 <TextField.InputEndContent>
-                                    {statusErrors.name.length === 0 && newStatus.name.trim() ? (
+                                    {typeErrors.code.length === 0 && newType.code.trim() ? (
                                         <Ionicons name="checkmark" size={24} color={colors.accent} />
-                                    ) : statusErrors.name.length > 0 ? (
+                                    ) : typeErrors.code.length > 0 ? (
                                         <Ionicons name="close" size={24} color={colors.danger} />
                                     ) : null}
                                 </TextField.InputEndContent>
                             </TextField.Input>
-                            {statusErrors.name.length > 0 ? <TextField.ErrorMessage>{statusErrors.name.join('\n')}</TextField.ErrorMessage> : undefined}
+                            {typeErrors.code.length > 0 ? <TextField.ErrorMessage>{typeErrors.code.join('\n')}</TextField.ErrorMessage> : undefined}
                         </TextField>
-                        {/* DESCRIPCIÓN */}
-                        <TextField isInvalid={statusErrors.description.length > 0}>
+
+                        <TextField isRequired isInvalid={typeErrors.name.length > 0}>
                             <View className="flex-row justify-between items-center mb-2">
-                                <TextField.Label className="text-foreground font-medium">Descripción</TextField.Label>
-                                <Text className="text-muted-foreground text-xs">{newStatus.description.length} / 500</Text>
+                                <TextField.Label className="text-foreground font-medium">Nombre</TextField.Label>
+                                <Text className="text-muted-foreground text-xs">{newType.name.length} / 100</Text>
                             </View>
                             <TextField.Input
                                 colors={{
                                     blurBackground: colors.accentSoft,
                                     focusBackground: colors.surface2,
-                                    blurBorder: statusErrors.description.length > 0 ? colors.danger : colors.accentSoft,
-                                    focusBorder: statusErrors.description.length > 0 ? colors.danger : colors.surface2,
+                                    blurBorder: typeErrors.name.length > 0 ? colors.danger : colors.accentSoft,
+                                    focusBorder: typeErrors.name.length > 0 ? colors.danger : colors.surface2,
+                                }}
+                                placeholder="Ej: Almacén de materia prima suplementos"
+                                value={newType.name}
+                                onChangeText={(text) => handleInputChange('name', text)}
+                                cursorColor={colors.accent}
+                                selectionHandleColor={colors.accent}
+                                selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                maxLength={100}
+                            >
+                                <TextField.InputEndContent>
+                                    {typeErrors.name.length === 0 && newType.name.trim() ? (
+                                        <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                    ) : typeErrors.name.length > 0 ? (
+                                        <Ionicons name="close" size={24} color={colors.danger} />
+                                    ) : null}
+                                </TextField.InputEndContent>
+                            </TextField.Input>
+                            {typeErrors.name.length > 0 ? <TextField.ErrorMessage>{typeErrors.name.join('\n')}</TextField.ErrorMessage> : undefined}
+                        </TextField>
+
+                        <TextField isInvalid={typeErrors.description.length > 0}>
+                            <View className="flex-row justify-between items-center mb-2">
+                                <TextField.Label className="text-foreground font-medium">Descripción</TextField.Label>
+                                <Text className="text-muted-foreground text-xs">{newType.description.length} / 500</Text>
+                            </View>
+                            <TextField.Input
+                                colors={{
+                                    blurBackground: colors.accentSoft,
+                                    focusBackground: colors.surface2,
+                                    blurBorder: typeErrors.description.length > 0 ? colors.danger : colors.accentSoft,
+                                    focusBorder: typeErrors.description.length > 0 ? colors.danger : colors.surface2,
                                 }}
                                 placeholder="Descripción (Opcional)"
-                                value={newStatus.description}
+                                value={newType.description}
                                 onChangeText={(text) => handleInputChange('description', text)}
                                 cursorColor={colors.accent}
                                 selectionHandleColor={colors.accent}
@@ -345,8 +386,8 @@ const CreateStatusModalContent = ({ modalRef, onStatusCreated, isLoading, alertR
                                 multiline
                                 numberOfLines={3}
                             />
-                            {statusErrors.description.length > 0 ? (
-                                <TextField.ErrorMessage>{statusErrors.description.join('\n')}</TextField.ErrorMessage>
+                            {typeErrors.description.length > 0 ? (
+                                <TextField.ErrorMessage>{typeErrors.description.join('\n')}</TextField.ErrorMessage>
                             ) : undefined}
                         </TextField>
                     </View>
@@ -370,51 +411,58 @@ const CreateStatusModalContent = ({ modalRef, onStatusCreated, isLoading, alertR
         </Modalize>
     )
 }
+
 // =====================================================================
 // MODAL DE EDICIÓN
 // =====================================================================
-const EditStatusModalContent = ({ modalRef, status, onStatusUpdated, alertRef }) => {
+const EditWarehouseTypeModalContent = ({ modalRef, warehouseType, onTypeUpdated, alertRef }) => {
     const { colors } = useTheme()
     const [isSaving, setIsSaving] = useState(false)
-    const [editedStatus, setEditedStatus] = useState({
+    const [editedType, setEditedType] = useState({
         id: '',
+        code: '',
         name: '',
         description: '',
     })
-    const [statusErrors, setStatusErrors] = useState({
+    const [typeErrors, setTypeErrors] = useState({
+        code: [],
         name: [],
         description: [],
     })
     const validators = {
+        code: [required],
         name: [required],
         description: [],
     }
     const runValidators = (value, fns) => fns.map((fn) => fn(value)).filter(Boolean)
     const handleInputChange = (field, value) => {
-        setEditedStatus((prev) => ({ ...prev, [field]: value }))
+        setEditedType((prev) => ({ ...prev, [field]: value }))
         const fns = validators[field] || []
         const errs = runValidators(value, fns)
-        setStatusErrors((prev) => ({ ...prev, [field]: errs }))
+        setTypeErrors((prev) => ({ ...prev, [field]: errs }))
     }
     useEffect(() => {
-        if (status) {
-            setEditedStatus({
-                id: status.id,
-                name: status.name || '',
-                description: status.description || '',
+        if (warehouseType) {
+            setEditedType({
+                id: warehouseType.id,
+                code: warehouseType.code || '',
+                name: warehouseType.name || '',
+                description: warehouseType.description || '',
             })
-            setStatusErrors({
+            setTypeErrors({
+                code: [],
                 name: [],
                 description: [],
             })
         }
-    }, [status])
+    }, [warehouseType])
     const onClose = () => modalRef.current?.close()
     const handleSave = async () => {
-        // Validación final
-        const nameErrs = runValidators(editedStatus.name, validators.name)
-        if (nameErrs.length > 0) {
-            setStatusErrors({
+        const codeErrs = runValidators(editedType.code, validators.code)
+        const nameErrs = runValidators(editedType.name, validators.name)
+        if (codeErrs.length > 0 || nameErrs.length > 0) {
+            setTypeErrors({
+                code: codeErrs,
                 name: nameErrs,
                 description: [],
             })
@@ -423,28 +471,30 @@ const EditStatusModalContent = ({ modalRef, status, onStatusUpdated, alertRef })
         }
         try {
             setIsSaving(true)
-            const statusData = {
-                id: editedStatus.id,
-                name: editedStatus.name.trim(),
-                description: editedStatus.description.trim() || null,
+            const typeData = {
+                id: editedType.id,
+                code: editedType.code.trim(),
+                name: editedType.name.trim(),
+                description: editedType.description.trim() || null,
             }
-            const response = await updateProductStatus(statusData)
+            const response = await updateWarehouseType(editedType.id, typeData)
             if (response.type === 'SUCCESS') {
                 onClose()
                 setTimeout(() => {
-                    alertRef.current?.show('Éxito', `Estado ${editedStatus.name} actualizado correctamente`, 'success')
+                    alertRef.current?.show('Éxito', `Tipo ${editedType.name} actualizado correctamente`, 'success')
                 }, 300)
-                if (onStatusUpdated) onStatusUpdated()
+                if (onTypeUpdated) onTypeUpdated()
             } else {
-                alertRef.current?.show('Error', 'No se pudo actualizar el estado', 'error')
+                alertRef.current?.show('Error', 'No se pudo actualizar el tipo', 'error')
             }
         } catch (error) {
-            console.error('Error update status:', error)
+            console.error('Error update warehouse type:', error)
             if (error.response?.data) {
                 const { result, title } = error.response.data
                 alertRef.current?.show('Error', title || 'Error al actualizar', 'error')
                 if (result && Array.isArray(result) && result.length > 0) {
                     const newFieldErrors = {
+                        code: [],
                         name: [],
                         description: [],
                     }
@@ -455,7 +505,7 @@ const EditStatusModalContent = ({ modalRef, status, onStatusUpdated, alertRef })
                             newFieldErrors[field] = descriptions
                         }
                     })
-                    setStatusErrors(newFieldErrors)
+                    setTypeErrors(newFieldErrors)
                 }
             } else {
                 alertRef.current?.show('Error', 'Error al actualizar', 'error')
@@ -465,7 +515,7 @@ const EditStatusModalContent = ({ modalRef, status, onStatusUpdated, alertRef })
         }
     }
     const hasErrors = () => {
-        return statusErrors.name.length > 0 || !editedStatus.name.trim()
+        return typeErrors.code.length > 0 || typeErrors.name.length > 0 || !editedType.code.trim() || !editedType.name.trim()
     }
     return (
         <Modalize ref={modalRef} {...MODAL_ANIMATION_PROPS} modalStyle={{ backgroundColor: colors.background }}>
@@ -475,64 +525,95 @@ const EditStatusModalContent = ({ modalRef, status, onStatusUpdated, alertRef })
                     keyboardShouldPersistTaps="handled"
                     contentContainerStyle={{ paddingHorizontal: '6%', paddingTop: '9%', paddingBottom: '6%' }}
                 >
-                    {status ? (
+                    {warehouseType ? (
                         <>
                             <View className="flex gap-0 mb-8">
                                 <View className="flex flex-row justify-between items-center">
-                                    <Text className="text-foreground text-2xl font-medium">Editar estado</Text>
+                                    <Text className="text-foreground text-2xl font-medium">Editar tipo</Text>
                                     <Button isIconOnly className="bg-transparent shrink-0" onPress={onClose}>
                                         <Ionicons name="close-outline" size={24} color={colors.foreground} />
                                     </Button>
                                 </View>
-                                <Text className="text-muted-foreground">Edite los datos del estado</Text>
+                                <Text className="text-muted-foreground">Edite los datos del tipo de almacén</Text>
                             </View>
                             <View className="gap-6">
-                                {/* NOMBRE */}
-                                <TextField isRequired isInvalid={statusErrors.name.length > 0}>
+                                <TextField isRequired isInvalid={typeErrors.code.length > 0}>
                                     <View className="flex-row justify-between items-center mb-2">
-                                        <TextField.Label className="text-foreground font-medium">Nombre</TextField.Label>
-                                        <Text className="text-muted-foreground text-xs">{editedStatus.name.length} / 255</Text>
+                                        <TextField.Label className="text-foreground font-medium">Código</TextField.Label>
+                                        <Text className="text-muted-foreground text-xs">{editedType.code.length} / 10</Text>
                                     </View>
                                     <TextField.Input
                                         colors={{
                                             blurBackground: colors.accentSoft,
                                             focusBackground: colors.surface2,
-                                            blurBorder: statusErrors.name.length > 0 ? colors.danger : colors.accentSoft,
-                                            focusBorder: statusErrors.name.length > 0 ? colors.danger : colors.surface2,
+                                            blurBorder: typeErrors.code.length > 0 ? colors.danger : colors.accentSoft,
+                                            focusBorder: typeErrors.code.length > 0 ? colors.danger : colors.surface2,
                                         }}
-                                        placeholder="Nombre del estado"
-                                        value={editedStatus.name}
-                                        onChangeText={(text) => handleInputChange('name', text)}
+                                        placeholder="Código del tipo"
+                                        value={editedType.code}
+                                        onChangeText={(text) => handleInputChange('code', text.toUpperCase())}
                                         cursorColor={colors.accent}
                                         selectionHandleColor={colors.accent}
                                         selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                        maxLength={255}
+                                        maxLength={10}
+                                        autoCapitalize="characters"
                                     >
                                         <TextField.InputEndContent>
-                                            {statusErrors.name.length === 0 && editedStatus.name.trim() ? (
+                                            {typeErrors.code.length === 0 && editedType.code.trim() ? (
                                                 <Ionicons name="checkmark" size={24} color={colors.accent} />
-                                            ) : statusErrors.name.length > 0 ? (
+                                            ) : typeErrors.code.length > 0 ? (
                                                 <Ionicons name="close" size={24} color={colors.danger} />
                                             ) : null}
                                         </TextField.InputEndContent>
                                     </TextField.Input>
-                                    {statusErrors.name.length > 0 ? <TextField.ErrorMessage>{statusErrors.name.join('\n')}</TextField.ErrorMessage> : undefined}
+                                    {typeErrors.code.length > 0 ? <TextField.ErrorMessage>{typeErrors.code.join('\n')}</TextField.ErrorMessage> : undefined}
                                 </TextField>
-                                {/* DESCRIPCIÓN */}
-                                <TextField isInvalid={statusErrors.description.length > 0}>
+
+                                <TextField isRequired isInvalid={typeErrors.name.length > 0}>
                                     <View className="flex-row justify-between items-center mb-2">
-                                        <TextField.Label className="text-foreground font-medium">Descripción</TextField.Label>
-                                        <Text className="text-muted-foreground text-xs">{editedStatus.description.length} / 500</Text>
+                                        <TextField.Label className="text-foreground font-medium">Nombre</TextField.Label>
+                                        <Text className="text-muted-foreground text-xs">{editedType.name.length} / 100</Text>
                                     </View>
                                     <TextField.Input
                                         colors={{
                                             blurBackground: colors.accentSoft,
                                             focusBackground: colors.surface2,
-                                            blurBorder: statusErrors.description.length > 0 ? colors.danger : colors.accentSoft,
-                                            focusBorder: statusErrors.description.length > 0 ? colors.danger : colors.surface2,
+                                            blurBorder: typeErrors.name.length > 0 ? colors.danger : colors.accentSoft,
+                                            focusBorder: typeErrors.name.length > 0 ? colors.danger : colors.surface2,
+                                        }}
+                                        placeholder="Nombre del tipo"
+                                        value={editedType.name}
+                                        onChangeText={(text) => handleInputChange('name', text)}
+                                        cursorColor={colors.accent}
+                                        selectionHandleColor={colors.accent}
+                                        selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                        maxLength={100}
+                                    >
+                                        <TextField.InputEndContent>
+                                            {typeErrors.name.length === 0 && editedType.name.trim() ? (
+                                                <Ionicons name="checkmark" size={24} color={colors.accent} />
+                                            ) : typeErrors.name.length > 0 ? (
+                                                <Ionicons name="close" size={24} color={colors.danger} />
+                                            ) : null}
+                                        </TextField.InputEndContent>
+                                    </TextField.Input>
+                                    {typeErrors.name.length > 0 ? <TextField.ErrorMessage>{typeErrors.name.join('\n')}</TextField.ErrorMessage> : undefined}
+                                </TextField>
+
+                                <TextField isInvalid={typeErrors.description.length > 0}>
+                                    <View className="flex-row justify-between items-center mb-2">
+                                        <TextField.Label className="text-foreground font-medium">Descripción</TextField.Label>
+                                        <Text className="text-muted-foreground text-xs">{editedType.description.length} / 500</Text>
+                                    </View>
+                                    <TextField.Input
+                                        colors={{
+                                            blurBackground: colors.accentSoft,
+                                            focusBackground: colors.surface2,
+                                            blurBorder: typeErrors.description.length > 0 ? colors.danger : colors.accentSoft,
+                                            focusBorder: typeErrors.description.length > 0 ? colors.danger : colors.surface2,
                                         }}
                                         placeholder="Descripción (Opcional)"
-                                        value={editedStatus.description}
+                                        value={editedType.description}
                                         onChangeText={(text) => handleInputChange('description', text)}
                                         cursorColor={colors.accent}
                                         selectionHandleColor={colors.accent}
@@ -541,8 +622,8 @@ const EditStatusModalContent = ({ modalRef, status, onStatusUpdated, alertRef })
                                         multiline
                                         numberOfLines={3}
                                     />
-                                    {statusErrors.description.length > 0 ? (
-                                        <TextField.ErrorMessage>{statusErrors.description.join('\n')}</TextField.ErrorMessage>
+                                    {typeErrors.description.length > 0 ? (
+                                        <TextField.ErrorMessage>{typeErrors.description.join('\n')}</TextField.ErrorMessage>
                                     ) : undefined}
                                 </TextField>
                             </View>
@@ -570,28 +651,29 @@ const EditStatusModalContent = ({ modalRef, status, onStatusUpdated, alertRef })
         </Modalize>
     )
 }
+
 // =====================================================================
 // MODAL DE ELIMINACIÓN
 // =====================================================================
-const DeleteStatusModalContent = ({ modalRef, status, onStatusDeleted, alertRef }) => {
+const DeleteWarehouseTypeModalContent = ({ modalRef, warehouseType, onTypeDeleted, alertRef }) => {
     const { colors } = useTheme()
     const [isDeleting, setIsDeleting] = useState(false)
     const onClose = () => modalRef.current?.close()
     const handleDelete = async () => {
         try {
             setIsDeleting(true)
-            const response = await deleteProductStatus(status.id)
+            const response = await deleteWarehouseType(warehouseType.id)
             if (response.type === 'SUCCESS') {
                 onClose()
                 setTimeout(() => {
-                    alertRef.current?.show('Éxito', 'Estado eliminado correctamente', 'success')
+                    alertRef.current?.show('Éxito', 'Tipo de almacén eliminado correctamente', 'success')
                 }, 300)
-                if (onStatusDeleted) onStatusDeleted()
+                if (onTypeDeleted) onTypeDeleted()
             } else {
-                alertRef.current?.show('Error', 'No se pudo eliminar el estado', 'error')
+                alertRef.current?.show('Error', 'No se pudo eliminar el tipo', 'error')
             }
         } catch (error) {
-            alertRef.current?.show('Error', 'Error al eliminar estado', 'error')
+            alertRef.current?.show('Error', 'Error al eliminar tipo de almacén', 'error')
         } finally {
             setIsDeleting(false)
         }
@@ -604,17 +686,17 @@ const DeleteStatusModalContent = ({ modalRef, status, onStatusDeleted, alertRef 
                     keyboardShouldPersistTaps="handled"
                     contentContainerStyle={{ paddingHorizontal: '6%', paddingTop: '9%', paddingBottom: '6%' }}
                 >
-                    {status ? (
+                    {warehouseType ? (
                         <View>
                             <View className="flex gap-0 mb-8">
                                 <View className="flex flex-row justify-between items-center">
-                                    <Text className="text-foreground text-2xl font-medium">¿Eliminar estado?</Text>
+                                    <Text className="text-foreground text-2xl font-medium">¿Eliminar tipo?</Text>
                                     <Button isIconOnly className="bg-transparent shrink-0" onPress={onClose}>
                                         <Ionicons name="close-outline" size={24} color={colors.foreground} />
                                     </Button>
                                 </View>
                                 <Text className="text-muted-foreground">
-                                    ¿Está seguro que desea eliminar el estado "{status.name}"? Esta acción no se puede deshacer.
+                                    ¿Está seguro que desea eliminar el tipo "{warehouseType.name}"? Esta acción no se puede deshacer.
                                 </Text>
                             </View>
                             <View className="flex-row justify-end gap-3">
@@ -641,73 +723,78 @@ const DeleteStatusModalContent = ({ modalRef, status, onStatusDeleted, alertRef 
         </Modalize>
     )
 }
+
 // =====================================================================
-// PANTALLA PRINCIPAL - PRODUCT STATUSES SCREEN
+// PANTALLA PRINCIPAL - WAREHOUSE TYPES SCREEN
 // =====================================================================
-const ProductStatusesScreen = () => {
+const WarehouseTypesScreen = () => {
     const [isLoading, setIsLoading] = useState(true)
-    const [statuses, setStatuses] = useState([])
+    const [warehouseTypes, setWarehouseTypes] = useState([])
     const { colors } = useTheme()
-    // Estados de filtros
     const [searchValue, setSearchValue] = useState('')
     const [sortOption, setSortOption] = useState({ value: 'name', label: 'Nombre' })
     const [rowsPerPage, setRowsPerPage] = useState('10')
     const [page, setPage] = useState(1)
-    // Referencias y estados para Modales
     const filterModalRef = useRef(null)
     const createModalRef = useRef(null)
     const editModalRef = useRef(null)
     const deleteModalRef = useRef(null)
     const alertRef = useRef(null)
-    const [statusToEdit, setStatusToEdit] = useState(null)
-    const [statusToDelete, setStatusToDelete] = useState(null)
-    // Handlers para abrir modales
+    const [typeToEdit, setTypeToEdit] = useState(null)
+    const [typeToDelete, setTypeToDelete] = useState(null)
+
     const openFilterModal = () => filterModalRef.current?.open()
     const openCreateModal = () => {
         requestAnimationFrame(() => {
             createModalRef.current?.open()
         })
     }
-    const openEditModal = (status) => {
-        setStatusToEdit(status)
+    const openEditModal = (type) => {
+        setTypeToEdit(type)
         setTimeout(() => {
             editModalRef.current?.open()
         }, 0)
     }
-    const openDeleteModal = (status) => {
-        setStatusToDelete(status)
+    const openDeleteModal = (type) => {
+        setTypeToDelete(type)
         setTimeout(() => {
             deleteModalRef.current?.open()
         }, 0)
     }
+
     const fetchData = async () => {
         try {
             setIsLoading(true)
-            const response = await getProductStatuses()
-            // El backend devuelve ResponseObject con data que contiene la lista
+            const response = await getWarehouseTypes()
             const list = Array.isArray(response?.data) ? response.data : []
-            setStatuses(list)
+            setWarehouseTypes(list)
         } catch (err) {
             console.error('Error fetch:', err)
-            alertRef.current?.show('Error', 'No se pudieron cargar los estados', 'error')
+            alertRef.current?.show('Error', 'No se pudieron cargar los tipos de almacén', 'error')
         } finally {
             setIsLoading(false)
         }
     }
+
     useEffect(() => {
         fetchData()
     }, [])
+
     useEffect(() => {
         setPage(1)
     }, [searchValue, rowsPerPage])
+
     const filteredAndSortedItems = useMemo(() => {
-        let result = [...statuses]
-        // Filtro de búsqueda
+        let result = [...warehouseTypes]
         if (searchValue) {
             const lowerSearch = searchValue.toLowerCase()
-            result = result.filter((status) => status.name?.toLowerCase().includes(lowerSearch) || status.description?.toLowerCase().includes(lowerSearch))
+            result = result.filter(
+                (type) =>
+                    type.code?.toLowerCase().includes(lowerSearch) ||
+                    type.name?.toLowerCase().includes(lowerSearch) ||
+                    type.description?.toLowerCase().includes(lowerSearch),
+            )
         }
-        // Ordenamiento
         if (sortOption?.value) {
             const key = sortOption.value
             result.sort((a, b) => {
@@ -722,12 +809,14 @@ const ProductStatusesScreen = () => {
             })
         }
         return result
-    }, [statuses, searchValue, sortOption])
+    }, [warehouseTypes, searchValue, sortOption])
+
     const pages = Math.ceil(filteredAndSortedItems.length / Number(rowsPerPage))
     const paginatedItems = useMemo(() => {
         const start = (page - 1) * Number(rowsPerPage)
         return filteredAndSortedItems.slice(start, start + Number(rowsPerPage))
     }, [page, filteredAndSortedItems, rowsPerPage])
+
     return (
         <View style={{ flex: 1 }}>
             <ScrollableLayout onRefresh={fetchData}>
@@ -736,7 +825,7 @@ const ProductStatusesScreen = () => {
                         <View className="w-full flex flex-row justify-between items-center">
                             <View className="flex flex-row items-center justify-center gap-2">
                                 <BackButton />
-                                <Text className="font-bold text-[32px] text-foreground">Estados</Text>
+                                <Text className="font-bold text-[32px] text-foreground">Almacenes</Text>
                             </View>
                             <View className="flex flex-row gap-0 items-center">
                                 <Button isIconOnly className="size-12 bg-transparent shrink-0" isDisabled={isLoading} onPress={openFilterModal}>
@@ -805,10 +894,9 @@ const ProductStatusesScreen = () => {
                                                 >
                                                     <Accordion.Trigger className="w-full bg-accent-soft pl-4 pr-0 py-2">
                                                         <View className="flex-row items-center justify-between w-full">
-                                                            {/* TEXTOS */}
                                                             <View className="flex-1 pr-2 justify-center py-1">
                                                                 <Text className="text-foreground font-medium text-lg mb-1" numberOfLines={1}>
-                                                                    {item.name}
+                                                                    {item.code} - {item.name}
                                                                 </Text>
                                                                 {item.description && (
                                                                     <Text className="text-muted-foreground text-[14px]" numberOfLines={1}>
@@ -816,8 +904,6 @@ const ProductStatusesScreen = () => {
                                                                     </Text>
                                                                 )}
                                                             </View>
-
-                                                            {/* ACCIONES */}
                                                             <View className="flex flex-row items-center gap-0">
                                                                 <TouchableOpacity
                                                                     onPress={() => openDeleteModal(item)}
@@ -826,7 +912,6 @@ const ProductStatusesScreen = () => {
                                                                 >
                                                                     <Ionicons name="trash-outline" size={24} color={colors.accent} />
                                                                 </TouchableOpacity>
-
                                                                 <TouchableOpacity
                                                                     onPress={() => openEditModal(item)}
                                                                     className="w-12 h-12 flex items-center justify-center rounded-full"
@@ -834,7 +919,6 @@ const ProductStatusesScreen = () => {
                                                                 >
                                                                     <Ionicons name="create-outline" size={24} color={colors.accent} />
                                                                 </TouchableOpacity>
-                                                                {/* Indicador también ajustado al área de toque */}
                                                                 <View className="w-12 h-12 flex items-center justify-center">
                                                                     <Accordion.Indicator
                                                                         iconProps={{
@@ -847,21 +931,21 @@ const ProductStatusesScreen = () => {
                                                         </View>
                                                     </Accordion.Trigger>
                                                     <Accordion.Content className="bg-accent-soft px-4 pb-4">
-                                                        {/* Separador sutil */}
                                                         <View className="h-px bg-border/30 mt-0 mb-3" />
-
-                                                        {/* Lista de datos con gap reducido (compacto) */}
                                                         <View className="gap-2">
+                                                            <InfoRow label="Código" value={item.code || 'N/A'} />
+                                                            <InfoRow label="Nombre" value={item.name || 'N/A'} />
                                                             {item.description && <InfoRow label="Descripción" value={item.description} />}
-                                                            <InfoRow label="Por" value={item.createdByUserName} />
-                                                            <InfoRow label="Creado" value={formatDateLiteral(item.createdAt, true)} />
-                                                            <InfoRow label="Actualizado" value={formatDateLiteral(item.updatedAt, true)} />
+                                                            <InfoRow label="Creado" value={item.createdAt ? formatDateLiteral(item.createdAt, true) : 'N/A'} />
+                                                            <InfoRow
+                                                                label="Actualizado"
+                                                                value={item.updatedAt ? formatDateLiteral(item.updatedAt, true) : 'N/A'}
+                                                            />
                                                         </View>
                                                     </Accordion.Content>
                                                 </Accordion.Item>
                                             ))}
                                         </Accordion>
-                                        {/* Paginación */}
                                         {pages > 1 && (
                                             <View className="items-end mt-2">
                                                 <View className="flex-row items-center justify-between rounded-lg">
@@ -893,10 +977,10 @@ const ProductStatusesScreen = () => {
                                     </>
                                 ) : (
                                     <View className="items-center justify-center py-12">
-                                        <Ionicons name="shield-outline" size={64} color={colors.muted} />
-                                        <Text className="text-muted-foreground text-lg mt-4">No se encontraron estados</Text>
+                                        <Ionicons name="business-outline" size={64} color={colors.muted} />
+                                        <Text className="text-muted-foreground text-lg mt-4">No se encontraron tipos de almacén</Text>
                                         <Text className="text-muted-foreground text-center mt-2 px-8">
-                                            {searchValue ? 'Intente con otros términos de búsqueda' : 'Comience creando un nuevo estado'}
+                                            {searchValue ? 'Intente con otros términos de búsqueda' : 'Comience creando un nuevo tipo de almacén'}
                                         </Text>
                                     </View>
                                 )}
@@ -905,7 +989,6 @@ const ProductStatusesScreen = () => {
                     )}
                 </View>
             </ScrollableLayout>
-            {/* MODALES */}
             <FiltersModalContent
                 modalRef={filterModalRef}
                 sortOption={sortOption}
@@ -914,11 +997,12 @@ const ProductStatusesScreen = () => {
                 setRowsPerPage={setRowsPerPage}
                 setPage={setPage}
             />
-            <CreateStatusModalContent modalRef={createModalRef} onStatusCreated={fetchData} isLoading={isLoading} alertRef={alertRef} />
-            <EditStatusModalContent modalRef={editModalRef} status={statusToEdit} onStatusUpdated={fetchData} alertRef={alertRef} />
-            <DeleteStatusModalContent modalRef={deleteModalRef} status={statusToDelete} onStatusDeleted={fetchData} alertRef={alertRef} />
+            <CreateWarehouseTypeModalContent modalRef={createModalRef} onTypeCreated={fetchData} isLoading={isLoading} alertRef={alertRef} />
+            <EditWarehouseTypeModalContent modalRef={editModalRef} warehouseType={typeToEdit} onTypeUpdated={fetchData} alertRef={alertRef} />
+            <DeleteWarehouseTypeModalContent modalRef={deleteModalRef} warehouseType={typeToDelete} onTypeDeleted={fetchData} alertRef={alertRef} />
             <CustomAlert ref={alertRef} />
         </View>
     )
 }
-export default ProductStatusesScreen
+
+export default WarehouseTypesScreen

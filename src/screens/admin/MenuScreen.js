@@ -25,7 +25,7 @@ const MenuScreen = () => {
             route: 'Logs',
         },
         {
-            id: 'statues',
+            id: 'statuses',
             title: 'Estados',
             subtitle: 'Configurar estados de productos',
             icon: 'shield-outline',
@@ -37,6 +37,20 @@ const MenuScreen = () => {
             subtitle: 'Configurar catálogos de stock',
             icon: 'albums-outline',
             route: 'Catalogos',
+        },
+        {
+            id: 'units',
+            title: 'Unidades de Medida',
+            subtitle: 'Configurar unidades de medición',
+            icon: 'scale-outline',
+            route: 'Unidades',
+        },
+        {
+            id: 'warehouseTypes',
+            title: 'Tipos de Almacén',
+            subtitle: 'Configurar tipos de almacenamiento',
+            icon: 'business-outline',
+            route: 'TiposAlmacen',
         },
     ]
 

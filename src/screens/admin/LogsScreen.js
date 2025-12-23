@@ -216,8 +216,6 @@ const LogsScreen = () => {
             setIsLoading(true)
             // El backend devuelve directamente una lista, no un objeto con data
             const list = await getAuditLogs()
-            console.log('=== WAREHOUSE TYPES (ORDENADO) ===')
-            console.log(JSON.stringify(list, null, 2))
             setLogs(Array.isArray(list) ? list : [])
         } catch (err) {
             console.error('Error fetch:', err)

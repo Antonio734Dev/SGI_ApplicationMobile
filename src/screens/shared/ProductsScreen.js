@@ -289,54 +289,55 @@ const ViewQrModalContent = ({ modalRef, product, alertRef }) => {
         try {
             setIsDownloading(true)
 
-            // 1. Ruta del archivo
-            const fileName = `QR_${product.nombre.replace(/\s+/g, '_')}_${product.lote}.png`
-            const fileUri = `${FileSystem.cacheDirectory}${fileName}`
+            // 1. Verificar Permisos explícitamente antes de procesar
+            let permissionStatus = permissionResponse?.status
 
-            const base64Code = qrImage.split(',')[1]
-
-            // 2. Escribir archivo (Usando la API legacy importada arriba)
-            await FileSystem.writeAsStringAsync(
-                fileUri,
-                base64Code,
-                { encoding: 'base64' }, // Mantenemos el string 'base64' por seguridad
-            )
-
-            // 3. Verificar Permisos
-            let hasPermission = false
-            if (permissionResponse?.status === 'granted') {
-                hasPermission = true
-            } else if (permissionResponse?.canAskAgain) {
+            if (permissionStatus !== 'granted') {
                 const { status } = await requestPermission()
-                hasPermission = status === 'granted'
+                permissionStatus = status
             }
 
-            // 4. Guardar o Compartir
-            if (hasPermission) {
-                const asset = await MediaLibrary.createAssetAsync(fileUri)
-                try {
-                    await MediaLibrary.createAlbumAsync('QR Codes', asset, false)
-                } catch (e) {
-                    console.log('Imagen guardada, álbum omitido.')
-                }
-                alertRef.current?.show('Éxito', 'Código QR guardado en galería', 'success')
-            } else {
-                const canShare = await Sharing.isAvailableAsync()
-                if (canShare) {
-                    await Sharing.shareAsync(fileUri, {
-                        mimeType: 'image/png',
-                        dialogTitle: 'Guardar código QR',
-                        UTI: 'public.png',
-                    })
-                    alertRef.current?.show('Aviso', 'Imagen compartida', 'success')
-                } else {
-                    alertRef.current?.show('Error', 'No se pudo guardar ni compartir', 'error')
-                }
+            if (permissionStatus !== 'granted') {
+                alertRef.current?.show('Permiso denegado', 'Se requieren permisos para guardar la imagen.', 'error')
+                return
             }
+
+            // 2. Preparar archivo
+            // Limpiamos el nombre de caracteres que puedan dar error en el sistema de archivos
+            const cleanName = product.nombre.replace(/[^a-zA-Z0-9]/g, '_')
+            const fileName = `QR_${cleanName}_${product.lote}.png`
+            const fileUri = `${FileSystem.cacheDirectory}${fileName}`
+            const base64Code = qrImage.includes(',') ? qrImage.split(',')[1] : qrImage
+
+            // 3. Escribir archivo temporal
+            await FileSystem.writeAsStringAsync(fileUri, base64Code, {
+                encoding: FileSystem.EncodingType.Base64,
+            })
+
+            // 4. Crear el Asset (Esto guarda la imagen en "Recientes" / "Camera Roll")
+            const asset = await MediaLibrary.createAssetAsync(fileUri)
+
+            // 5. Intentar organizar en Álbum (Opcional - Manejo de error específico)
+            try {
+                const albumName = 'QR Codes'
+                // Buscamos si el álbum ya existe
+                const album = await MediaLibrary.getAlbumAsync(albumName)
+
+                if (album) {
+                    await MediaLibrary.addAssetsToAlbumAsync([asset], album, false)
+                } else {
+                    await MediaLibrary.createAlbumAsync(albumName, asset, false)
+                }
+            } catch (albumError) {
+                // Si falla el álbum (ej. usuario deniega "modify"), no importa gravemente
+                // porque el asset YA se creó en el paso 4.
+                console.log('No se pudo agregar al álbum específico, pero la imagen existe en Recientes.')
+            }
+
+            alertRef.current?.show('Éxito', 'Código QR guardado en galería', 'success')
         } catch (error) {
             console.error('Error downloading QR:', error)
-            const msg = error.message?.includes('AUDIO') ? 'Error de configuración de permisos' : 'No se pudo descargar el código QR'
-            alertRef.current?.show('Error', msg, 'error')
+            alertRef.current?.show('Error', 'No se pudo guardar la imagen', 'error')
         } finally {
             setIsDownloading(false)
         }
@@ -422,6 +423,7 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
     const [showDatePickerIngreso, setShowDatePickerIngreso] = useState(false)
     const [showDatePickerCaducidad, setShowDatePickerCaducidad] = useState(false)
     const [showDatePickerReanalisis, setShowDatePickerReanalisis] = useState(false)
+    const [showDatePickerMuestreo, setShowDatePickerMuestreo] = useState(false)
 
     // Inicializar fechas con fecha actual
     const getTodayDateString = () => {
@@ -436,13 +438,13 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
         warehouseTypeId: '',
         nombre: '',
         codigoProducto: '',
-        numeroSerie: '',
         lote: '',
         loteProveedor: '',
         fabricante: '',
         distribuidor: '',
         fechaIngreso: getTodayDateString(),
         fechaCaducidad: getTodayDateString(),
+        fechaMuestreo: getTodayDateString(),
         fechaReanalisis: getTodayDateString(),
         cantidad: '',
         numeroAnalisis: '',
@@ -456,13 +458,13 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
         warehouseTypeId: [],
         nombre: [],
         codigoProducto: [],
-        numeroSerie: [],
         lote: [],
         loteProveedor: [],
         fabricante: [],
         distribuidor: [],
         fechaIngreso: [],
         fechaCaducidad: [],
+        fechaMuestreo: [],
         fechaReanalisis: [],
         cantidad: [],
         numeroAnalisis: [],
@@ -477,13 +479,13 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
         warehouseTypeId: [required],
         nombre: [required],
         codigoProducto: [required],
-        numeroSerie: [],
         lote: [required],
         loteProveedor: [required],
         fabricante: [],
         distribuidor: [],
         fechaIngreso: [required, validDate],
         fechaCaducidad: [],
+        fechaMuestreo: [],
         fechaReanalisis: [],
         cantidad: [required, validPositiveNumber],
         numeroAnalisis: [],
@@ -503,6 +505,7 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
         if (Platform.OS === 'android') {
             if (field === 'ingreso') setShowDatePickerIngreso(false)
             if (field === 'caducidad') setShowDatePickerCaducidad(false)
+            if (field === 'muestreo') setShowDatePickerMuestreo(false)
             if (field === 'reanalisis') setShowDatePickerReanalisis(false)
         }
 
@@ -513,12 +516,15 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                 handleInputChange('fechaIngreso', formattedDate)
             } else if (field === 'caducidad') {
                 handleInputChange('fechaCaducidad', formattedDate)
+            } else if (field === 'muestreo') {
+                handleInputChange('fechaMuestreo', formattedDate)
             } else if (field === 'reanalisis') {
                 handleInputChange('fechaReanalisis', formattedDate)
             }
         } else {
             if (field === 'ingreso') setShowDatePickerIngreso(false)
             if (field === 'caducidad') setShowDatePickerCaducidad(false)
+            if (field === 'muestreo') setShowDatePickerMuestreo(false)
             if (field === 'reanalisis') setShowDatePickerReanalisis(false)
         }
     }
@@ -532,13 +538,13 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
             warehouseTypeId: '',
             nombre: '',
             codigoProducto: '',
-            numeroSerie: '',
             lote: '',
             loteProveedor: '',
             fabricante: '',
             distribuidor: '',
             fechaIngreso: getTodayDateString(),
             fechaCaducidad: getTodayDateString(),
+            fechaMuestreo: getTodayDateString(),
             fechaReanalisis: getTodayDateString(),
             cantidad: '',
             numeroAnalisis: '',
@@ -552,12 +558,12 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
             codigoProducto: [],
             lote: [],
             nombre: [],
-            numeroSerie: [],
             loteProveedor: [],
             fabricante: [],
             distribuidor: [],
             fechaIngreso: [],
             fechaCaducidad: [],
+            fechaMuestreo: [],
             fechaReanalisis: [],
             cantidad: [],
             numeroAnalisis: [],
@@ -565,6 +571,7 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
         })
         setShowDatePickerIngreso(false)
         setShowDatePickerCaducidad(false)
+        setShowDatePickerMuestreo(false)
         setShowDatePickerReanalisis(false)
     }
 
@@ -624,13 +631,13 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                 warehouseTypeId: warehouseTypeIdErrs,
                 nombre: nombreErrs,
                 codigoProducto: codigoProductoErrs,
-                numeroSerie: [],
                 lote: loteErrs,
                 loteProveedor: loteProveedorErrs,
                 fabricante: [],
                 distribuidor: [],
                 fechaIngreso: fechaIngresoErrs,
                 fechaCaducidad: [],
+                fechaMuestreo: [],
                 fechaReanalisis: [],
                 cantidad: cantidadErrs,
                 numeroAnalisis: [],
@@ -651,13 +658,13 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                 warehouseTypeId: newProduct.warehouseTypeId ? Number(newProduct.warehouseTypeId) : null,
                 nombre: newProduct.nombre.trim(),
                 codigoProducto: newProduct.codigoProducto.trim() || null,
-                numeroSerie: newProduct.numeroSerie.trim() || null,
                 lote: newProduct.lote.trim(),
                 loteProveedor: newProduct.loteProveedor.trim() || null,
                 fabricante: newProduct.fabricante.trim() || null,
                 distribuidor: newProduct.distribuidor.trim() || null,
                 fechaIngreso: newProduct.fechaIngreso.trim() || null,
                 fechaCaducidad: newProduct.fechaCaducidad.trim() || null,
+                fechaMuestreo: newProduct.fechaMuestreo.trim() || null,
                 reanalisis: newProduct.fechaReanalisis.trim() || null,
                 cantidad: cantidadValue,
                 cantidadTotal: cantidadValue,
@@ -685,13 +692,13 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                         warehouseTypeId: [],
                         nombre: [],
                         codigoProducto: [],
-                        numeroSerie: [],
                         lote: [],
                         loteProveedor: [],
                         fabricante: [],
                         distribuidor: [],
                         fechaIngreso: [],
                         fechaCaducidad: [],
+                        fechaMuestreo: [],
                         fechaReanalisis: [],
                         cantidad: [],
                         numeroAnalisis: [],
@@ -894,32 +901,6 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                                 ) : undefined}
                             </TextField>
 
-                            {/* NÚMERO DE SERIE */}
-                            <TextField isInvalid={productErrors.numeroSerie.length > 0}>
-                                <View className="flex-row justify-between items-center mb-2">
-                                    <TextField.Label className="text-foreground font-medium">Número de serie (Opcional)</TextField.Label>
-                                    <Text className="text-muted-foreground text-xs">{newProduct.numeroSerie.length} / 100</Text>
-                                </View>
-                                <TextField.Input
-                                    colors={{
-                                        blurBackground: colors.accentSoft,
-                                        focusBackground: colors.surface2,
-                                        blurBorder: productErrors.numeroSerie.length > 0 ? colors.danger : colors.accentSoft,
-                                        focusBorder: productErrors.numeroSerie.length > 0 ? colors.danger : colors.surface2,
-                                    }}
-                                    placeholder="Número de serie"
-                                    value={newProduct.numeroSerie}
-                                    onChangeText={(text) => handleInputChange('numeroSerie', text)}
-                                    cursorColor={colors.accent}
-                                    selectionHandleColor={colors.accent}
-                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                    maxLength={100}
-                                />
-                                {productErrors.numeroSerie.length > 0 ? (
-                                    <TextField.ErrorMessage>{productErrors.numeroSerie.join('\n')}</TextField.ErrorMessage>
-                                ) : undefined}
-                            </TextField>
-
                             {/* FECHA INGRESO */}
                             <TextField isRequired isInvalid={productErrors.fechaIngreso.length > 0}>
                                 <TextField.Label className="text-foreground font-medium mb-2">Fecha de ingreso</TextField.Label>
@@ -1036,6 +1017,45 @@ const CreateProductModalContent = ({ modalRef, onProductCreated, isLoading, aler
                                         is24Hour={true}
                                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                         onChange={(event, selectedDate) => onDateChange('reanalisis', event, selectedDate)}
+                                    />
+                                )}
+                            </TextField>
+
+                            <TextField isInvalid={productErrors.fechaMuestreo.length > 0}>
+                                <TextField.Label className="text-foreground font-medium mb-2">Fecha de muestreo</TextField.Label>
+                                <Pressable onPress={() => setShowDatePickerMuestreo(true)}>
+                                    <View pointerEvents="none">
+                                        <TextField.Input
+                                            colors={{
+                                                blurBackground: colors.accentSoft,
+                                                focusBackground: colors.surface2,
+                                                blurBorder: productErrors.fechaMuestreo.length > 0 ? colors.danger : colors.accentSoft,
+                                                focusBorder: productErrors.fechaMuestreo.length > 0 ? colors.danger : colors.surface2,
+                                            }}
+                                            placeholder="12/DIC/2025"
+                                            value={newProduct.fechaMuestreo ? formatDateStringToShort(newProduct.fechaMuestreo) : ''}
+                                            editable={false}
+                                            cursorColor={colors.accent}
+                                            selectionHandleColor={colors.accent}
+                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                        >
+                                            <TextField.InputEndContent>
+                                                <Ionicons name="calendar-outline" size={24} color={colors.accent} />
+                                            </TextField.InputEndContent>
+                                        </TextField.Input>
+                                    </View>
+                                </Pressable>
+                                {productErrors.fechaMuestreo.length > 0 ? (
+                                    <TextField.ErrorMessage>{productErrors.fechaMuestreo.join('\n')}</TextField.ErrorMessage>
+                                ) : undefined}
+                                {showDatePickerMuestreo && (
+                                    <DateTimePicker
+                                        testID="dateTimePickerMuestreo"
+                                        value={newProduct.fechaMuestreo ? new Date(newProduct.fechaMuestreo) : new Date()}
+                                        mode="date"
+                                        is24Hour={true}
+                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                        onChange={(event, selectedDate) => onDateChange('muestreo', event, selectedDate)}
                                     />
                                 )}
                             </TextField>
@@ -1451,6 +1471,7 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
     const [isSaving, setIsSaving] = useState(false)
     const [showDatePickerIngreso, setShowDatePickerIngreso] = useState(false)
     const [showDatePickerCaducidad, setShowDatePickerCaducidad] = useState(false)
+    const [showDatePickerMuestreo, setShowDatePickerMuestreo] = useState(false)
     const [showDatePickerReanalisis, setShowDatePickerReanalisis] = useState(false)
 
     // Inicializar fechas con fecha actual
@@ -1467,13 +1488,13 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
         warehouseTypeId: '',
         nombre: '',
         codigoProducto: '',
-        numeroSerie: '',
         lote: '',
         loteProveedor: '',
         fabricante: '',
         distribuidor: '',
         fechaIngreso: '',
         fechaCaducidad: '',
+        fechaMuestreo: '',
         fechaReanalisis: '',
         cantidad: '',
         numeroAnalisis: '',
@@ -1486,13 +1507,13 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
         warehouseTypeId: [],
         nombre: [],
         codigoProducto: [],
-        numeroSerie: [],
         lote: [],
         loteProveedor: [],
         fabricante: [],
         distribuidor: [],
         fechaIngreso: [],
         fechaCaducidad: [],
+        fechaMuestreo: [],
         fechaReanalisis: [],
         cantidad: [],
         numeroAnalisis: [],
@@ -1506,13 +1527,13 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
         warehouseTypeId: [required],
         nombre: [required],
         codigoProducto: [required],
-        numeroSerie: [],
         lote: [required],
         loteProveedor: [required],
         fabricante: [],
         distribuidor: [],
         fechaIngreso: [required, validDate],
         fechaCaducidad: [],
+        fechaMuestreo: [],
         fechaReanalisis: [],
         cantidad: [required, validPositiveNumber],
         numeroAnalisis: [],
@@ -1532,6 +1553,7 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
         if (Platform.OS === 'android') {
             if (field === 'ingreso') setShowDatePickerIngreso(false)
             if (field === 'caducidad') setShowDatePickerCaducidad(false)
+            if (field === 'muestreo') setShowDatePickerMuestreo(false)
             if (field === 'reanalisis') setShowDatePickerReanalisis(false)
         }
 
@@ -1542,12 +1564,15 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                 handleInputChange('fechaIngreso', formattedDate)
             } else if (field === 'caducidad') {
                 handleInputChange('fechaCaducidad', formattedDate)
+            } else if (field === 'muestreo') {
+                handleInputChange('fechaMuestreo', formattedDate)
             } else if (field === 'reanalisis') {
                 handleInputChange('fechaReanalisis', formattedDate)
             }
         } else {
             if (field === 'ingreso') setShowDatePickerIngreso(false)
             if (field === 'caducidad') setShowDatePickerCaducidad(false)
+            if (field === 'muestreo') setShowDatePickerMuestreo(false)
             if (field === 'reanalisis') setShowDatePickerReanalisis(false)
         }
     }
@@ -1562,13 +1587,13 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                 warehouseTypeId: product.warehouseTypeId || '',
                 nombre: product.nombre || '',
                 codigoProducto: product.codigoProducto || product.codigo || '',
-                numeroSerie: product.numeroSerie || '',
                 lote: product.lote || '',
                 loteProveedor: product.loteProveedor || '',
                 fabricante: product.fabricante || '',
                 distribuidor: product.distribuidor || '',
                 fechaIngreso: product.fecha ? product.fecha.split('T')[0] : getTodayDateString(),
                 fechaCaducidad: product.caducidad ? product.caducidad.split('T')[0] : getTodayDateString(),
+                fechaMuestreo: product.muestreo ? product.muestreo.split('T')[0] : getTodayDateString(),
                 fechaReanalisis: product.reanalisis ? product.reanalisis.split('T')[0] : getTodayDateString(),
                 cantidad: product.cantidadTotal ? String(product.cantidadTotal) : '',
                 numeroAnalisis: product.numeroAnalisis || '',
@@ -1581,13 +1606,13 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                 warehouseTypeId: [],
                 nombre: [],
                 codigoProducto: [],
-                numeroSerie: [],
                 lote: [],
                 loteProveedor: [],
                 fabricante: [],
                 distribuidor: [],
                 fechaIngreso: [],
                 fechaCaducidad: [],
+                fechaMuestreo: [],
                 fechaReanalisis: [],
                 cantidad: [],
                 numeroAnalisis: [],
@@ -1600,6 +1625,7 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
         modalRef.current?.close()
         setShowDatePickerIngreso(false)
         setShowDatePickerCaducidad(false)
+        setShowDatePickerMuestreo(false)
         setShowDatePickerReanalisis(false)
     }
 
@@ -1659,13 +1685,13 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                 warehouseTypeId: warehouseTypeIdErrs,
                 nombre: nombreErrs,
                 codigoProducto: codigoProductoErrs,
-                numeroSerie: [],
                 lote: loteErrs,
                 loteProveedor: loteProveedorErrs,
                 fabricante: [],
                 distribuidor: [],
                 fechaIngreso: fechaIngresoErrs,
                 fechaCaducidad: [],
+                fechaMuestreo: [],
                 fechaReanalisis: [],
                 cantidad: cantidadErrs,
                 numeroAnalisis: [],
@@ -1686,13 +1712,13 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                 warehouseTypeId: editedProduct.warehouseTypeId ? Number(editedProduct.warehouseTypeId) : null,
                 nombre: editedProduct.nombre.trim(),
                 codigoProducto: editedProduct.codigoProducto.trim() || null,
-                numeroSerie: editedProduct.numeroSerie.trim() || null,
                 lote: editedProduct.lote.trim(),
                 loteProveedor: editedProduct.loteProveedor.trim() || null,
                 fabricante: editedProduct.fabricante.trim() || null,
                 distribuidor: editedProduct.distribuidor.trim() || null,
                 fechaIngreso: editedProduct.fechaIngreso.trim() || null,
                 fechaCaducidad: editedProduct.fechaCaducidad.trim() || null,
+                fechaMuestreo: editedProduct.fechaMuestreo.trim() || null,
                 reanalisis: editedProduct.fechaReanalisis.trim() || null,
                 cantidadTotal: cantidadValue,
                 numeroAnalisis: editedProduct.numeroAnalisis.trim() || null,
@@ -1721,13 +1747,13 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                         warehouseTypeId: [],
                         nombre: [],
                         codigoProducto: [],
-                        numeroSerie: [],
                         lote: [],
                         loteProveedor: [],
                         fabricante: [],
                         distribuidor: [],
                         fechaIngreso: [],
                         fechaCaducidad: [],
+                        fechaMuestreo: [],
                         fechaReanalisis: [],
                         cantidad: [],
                         numeroAnalisis: [],
@@ -1933,32 +1959,6 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                                         ) : undefined}
                                     </TextField>
 
-                                    {/* NÚMERO DE SERIE */}
-                                    <TextField isInvalid={productErrors.numeroSerie.length > 0}>
-                                        <View className="flex-row justify-between items-center mb-2">
-                                            <TextField.Label className="text-foreground font-medium">Número de serie (Opcional)</TextField.Label>
-                                            <Text className="text-muted-foreground text-xs">{editedProduct.numeroSerie.length} / 100</Text>
-                                        </View>
-                                        <TextField.Input
-                                            colors={{
-                                                blurBackground: colors.accentSoft,
-                                                focusBackground: colors.surface2,
-                                                blurBorder: productErrors.numeroSerie.length > 0 ? colors.danger : colors.accentSoft,
-                                                focusBorder: productErrors.numeroSerie.length > 0 ? colors.danger : colors.surface2,
-                                            }}
-                                            placeholder="Número de serie"
-                                            value={editedProduct.numeroSerie}
-                                            onChangeText={(text) => handleInputChange('numeroSerie', text)}
-                                            cursorColor={colors.accent}
-                                            selectionHandleColor={colors.accent}
-                                            selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
-                                            maxLength={100}
-                                        />
-                                        {productErrors.numeroSerie.length > 0 ? (
-                                            <TextField.ErrorMessage>{productErrors.numeroSerie.join('\n')}</TextField.ErrorMessage>
-                                        ) : undefined}
-                                    </TextField>
-
                                     {/* LOTE PROVEEDOR */}
                                     <TextField isRequired isInvalid={productErrors.loteProveedor.length > 0}>
                                         <View className="flex-row justify-between items-center mb-2">
@@ -2153,6 +2153,44 @@ const EditProductModalContent = ({ modalRef, product, onProductUpdated, alertRef
                                                 is24Hour={true}
                                                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                                 onChange={(event, selectedDate) => onDateChange('reanalisis', event, selectedDate)}
+                                            />
+                                        )}
+                                    </TextField>
+                                    <TextField isInvalid={productErrors.fechaMuestreo.length > 0}>
+                                        <TextField.Label className="text-foreground font-medium mb-2">Fecha de muestreo</TextField.Label>
+                                        <Pressable onPress={() => setShowDatePickerMuestreo(true)}>
+                                            <View pointerEvents="none">
+                                                <TextField.Input
+                                                    colors={{
+                                                        blurBackground: colors.accentSoft,
+                                                        focusBackground: colors.surface2,
+                                                        blurBorder: productErrors.fechaMuestreo.length > 0 ? colors.danger : colors.accentSoft,
+                                                        focusBorder: productErrors.fechaMuestreo.length > 0 ? colors.danger : colors.surface2,
+                                                    }}
+                                                    placeholder="12/DIC/2025"
+                                                    value={editedProduct.fechaMuestreo ? formatDateStringToShort(editedProduct.fechaMuestreo) : ''}
+                                                    editable={false}
+                                                    cursorColor={colors.accent}
+                                                    selectionHandleColor={colors.accent}
+                                                    selectionColor={Platform.OS === 'ios' ? colors.accent : colors.muted}
+                                                >
+                                                    <TextField.InputEndContent>
+                                                        <Ionicons name="calendar-outline" size={24} color={colors.accent} />
+                                                    </TextField.InputEndContent>
+                                                </TextField.Input>
+                                            </View>
+                                        </Pressable>
+                                        {productErrors.fechaMuestreo.length > 0 ? (
+                                            <TextField.ErrorMessage>{productErrors.fechaMuestreo.join('\n')}</TextField.ErrorMessage>
+                                        ) : undefined}
+                                        {showDatePickerMuestreo && (
+                                            <DateTimePicker
+                                                testID="dateTimePickerMuestreo"
+                                                value={editedProduct.fechaMuestreo ? new Date(editedProduct.fechaMuestreo) : new Date()}
+                                                mode="date"
+                                                is24Hour={true}
+                                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                                onChange={(event, selectedDate) => onDateChange('muestreo', event, selectedDate)}
                                             />
                                         )}
                                     </TextField>
@@ -2531,6 +2569,10 @@ const QrScannerModalContent = ({ modalRef, onScanSuccess, alertRef }) => {
         modalRef.current?.close()
     }
 
+    const resetScan = () => {
+        setScanned(false)
+    }
+
     if (permission === null) {
         return (
             <Modalize ref={modalRef} {...MODAL_ANIMATION_PROPS} modalStyle={{ backgroundColor: colors.background }}>
@@ -2585,6 +2627,12 @@ const QrScannerModalContent = ({ modalRef, onScanSuccess, alertRef }) => {
                         />
                     </View>
                     <Text className="text-muted-foreground text-center mt-4">Apunta la cámara hacia el código QR del producto</Text>
+                    {scanned && (
+                        <Button className="mt-4 bg-accent" onPress={resetScan}>
+                            <Ionicons name="refresh-outline" size={24} color={colors.accentForeground} />
+                            <Button.Label>Escanear otro código</Button.Label>
+                        </Button>
+                    )}
                 </View>
             </View>
         </Modalize>
@@ -2687,6 +2735,12 @@ const ProductDetailsModalContent = ({ modalRef, product, onEdit, alertRef, catal
                                     <Text className="text-[14px] text-muted-foreground w-32 pt-0.5">Caducidad</Text>
                                     <Text className="text-[14px] text-foreground text-right flex-1" numberOfLines={2}>
                                         {formatDate(product.caducidad)}
+                                    </Text>
+                                </View>
+                                <View className="flex-row items-start justify-between">
+                                    <Text className="text-[14px] text-muted-foreground w-32 pt-0.5">Muestreo</Text>
+                                    <Text className="text-[14px] text-foreground text-right flex-1" numberOfLines={2}>
+                                        {formatDate(product.fechaMuestreo)}
                                     </Text>
                                 </View>
                                 <View className="flex-row items-start justify-between">
@@ -3061,7 +3115,6 @@ const ProductsScreen = () => {
                                                         <View className="gap-2">
                                                             <InfoRow label="Nombre" value={item.nombre || 'N/A'} />
                                                             <InfoRow label="Código" value={item.codigo || 'N/A'} />
-                                                            {item.numeroSerie && <InfoRow label="Número de serie" value={item.numeroSerie} />}
                                                             <InfoRow label="Catálogo" value={getCatalogueName(item.stockCatalogueId)} />
                                                             <InfoRow label="Estado" value={getStatusName(item.productStatusId)} />
                                                             <InfoRow
@@ -3077,6 +3130,14 @@ const ProductsScreen = () => {
                                                                 value={
                                                                     item.caducidad
                                                                         ? `${new Date(item.caducidad + 'T12:00:00').getDate()} de ${new Date(item.caducidad + 'T12:00:00').toLocaleString('es-MX', { month: 'short' }).toUpperCase().replace('.', '')} de ${new Date(item.caducidad + 'T12:00:00').getFullYear()}`
+                                                                        : 'N/A'
+                                                                }
+                                                            />
+                                                            <InfoRow
+                                                                label="Muestreo"
+                                                                value={
+                                                                    item.fechaMuestreo
+                                                                        ? `${new Date(item.fechaMuestreo + 'T12:00:00').getDate()} de ${new Date(item.fechaMuestreo + 'T12:00:00').toLocaleString('es-MX', { month: 'short' }).toUpperCase().replace('.', '')} de ${new Date(item.fechaMuestreo + 'T12:00:00').getFullYear()}`
                                                                         : 'N/A'
                                                                 }
                                                             />

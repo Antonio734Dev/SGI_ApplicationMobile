@@ -148,6 +148,10 @@ const QrScannerModalContent = ({ modalRef, alertRef, navigation }) => {
         modalRef.current?.close()
     }
 
+    const resetScan = () => {
+        setScanned(false)
+    }
+
     if (permission === null) {
         return (
             <Modalize ref={modalRef} {...MODAL_ANIMATION_PROPS} modalStyle={{ backgroundColor: colors.background }}>
@@ -202,6 +206,12 @@ const QrScannerModalContent = ({ modalRef, alertRef, navigation }) => {
                         />
                     </View>
                     <Text className="text-muted-foreground text-center mt-4">Apunta la cámara hacia el código QR del producto</Text>
+                    {scanned && (
+                        <Button className="mt-4 bg-accent" onPress={resetScan}>
+                            <Ionicons name="refresh-outline" size={24} color={colors.accentForeground} />
+                            <Button.Label>Escanear otro código</Button.Label>
+                        </Button>
+                    )}
                 </View>
             </View>
         </Modalize>
